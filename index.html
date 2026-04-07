@@ -1,0 +1,896 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>牛扒知识卡工具</title>
+  <style>
+    :root {
+      --bg: #f5efe4;
+      --panel: rgba(255, 252, 246, 0.86);
+      --card: #fffaf1;
+      --card-strong: #fff4dd;
+      --text: #2d2016;
+      --muted: #6f5a45;
+      --line: rgba(97, 65, 34, 0.14);
+      --accent: #8a2e1c;
+      --accent-2: #cf6b3d;
+      --accent-3: #264c3d;
+      --shadow: 0 18px 40px rgba(66, 38, 16, 0.12);
+      --radius: 22px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(207, 107, 61, 0.22), transparent 32%),
+        radial-gradient(circle at right 15% top 10%, rgba(138, 46, 28, 0.14), transparent 22%),
+        linear-gradient(160deg, #f7f2e8 0%, #efe4d1 100%);
+      min-height: 100vh;
+    }
+
+    .wrap {
+      width: min(1280px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 28px 0 48px;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, rgba(255, 249, 240, 0.92), rgba(255, 245, 229, 0.88));
+      border: 1px solid rgba(138, 46, 28, 0.12);
+      box-shadow: var(--shadow);
+      border-radius: calc(var(--radius) + 6px);
+      padding: 28px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      inset: auto -80px -90px auto;
+      width: 240px;
+      height: 240px;
+      background: radial-gradient(circle, rgba(207, 107, 61, 0.15), transparent 68%);
+      transform: rotate(18deg);
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 12px;
+      border-radius: 999px;
+      background: rgba(138, 46, 28, 0.08);
+      color: var(--accent);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+
+    h1 {
+      margin: 14px 0 10px;
+      font-size: clamp(30px, 5vw, 54px);
+      line-height: 1.05;
+    }
+
+    .subtitle {
+      max-width: 780px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.7;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 24px;
+    }
+
+    .stat {
+      background: rgba(255, 255, 255, 0.62);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 16px;
+      backdrop-filter: blur(8px);
+    }
+
+    .stat b {
+      display: block;
+      font-size: 28px;
+      margin-bottom: 6px;
+    }
+
+    .controls {
+      margin-top: 20px;
+      padding: 18px;
+      display: grid;
+      gap: 14px;
+      background: var(--panel);
+      border-radius: var(--radius);
+      border: 1px solid rgba(97, 65, 34, 0.1);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(12px);
+    }
+
+    .controls-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .search {
+      flex: 1 1 320px;
+      min-width: 220px;
+      border: 1px solid rgba(97, 65, 34, 0.14);
+      background: #fffdf8;
+      padding: 13px 16px;
+      border-radius: 14px;
+      font-size: 15px;
+      color: var(--text);
+      outline: none;
+    }
+
+    .search:focus {
+      border-color: rgba(138, 46, 28, 0.35);
+      box-shadow: 0 0 0 4px rgba(138, 46, 28, 0.08);
+    }
+
+    button, .chip {
+      border: 0;
+      border-radius: 999px;
+      padding: 10px 14px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.18s ease, background 0.18s ease, color 0.18s ease;
+    }
+
+    button:hover, .chip:hover {
+      transform: translateY(-1px);
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .btn-secondary {
+      background: rgba(138, 46, 28, 0.08);
+      color: var(--accent);
+    }
+
+    .btn-dark {
+      background: var(--accent-3);
+      color: #fff;
+    }
+
+    .chip {
+      background: rgba(97, 65, 34, 0.08);
+      color: var(--text);
+    }
+
+    .chip.active {
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      color: #fff;
+    }
+
+    .toolbar-note {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .result-bar {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      margin: 22px 0 14px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+      gap: 18px;
+    }
+
+    .card {
+      position: relative;
+      min-height: 250px;
+      border-radius: 22px;
+      background: linear-gradient(180deg, rgba(255, 250, 241, 0.96), rgba(255, 246, 232, 0.98));
+      border: 1px solid rgba(138, 46, 28, 0.12);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(145deg, rgba(138, 46, 28, 0.05), transparent 35%),
+        radial-gradient(circle at bottom right, rgba(207, 107, 61, 0.08), transparent 40%);
+      pointer-events: none;
+    }
+
+    .card-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 16px 18px 0;
+      align-items: flex-start;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      background: rgba(38, 76, 61, 0.1);
+      color: var(--accent-3);
+    }
+
+    .index {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .card-body {
+      padding: 14px 18px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      flex: 1;
+    }
+
+    .q {
+      font-size: 20px;
+      line-height: 1.45;
+      font-weight: 800;
+      margin: 0;
+    }
+
+    .a {
+      margin: 0;
+      padding: 14px;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.72);
+      border: 1px dashed rgba(138, 46, 28, 0.16);
+      line-height: 1.7;
+      color: #422616;
+      display: none;
+    }
+
+    .card.show-answer .a {
+      display: block;
+    }
+
+    .card-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: auto;
+    }
+
+    .card-btn {
+      background: rgba(138, 46, 28, 0.08);
+      color: var(--accent);
+      padding: 9px 12px;
+      font-size: 13px;
+    }
+
+    .empty {
+      padding: 36px 20px;
+      text-align: center;
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.55);
+      border-radius: 20px;
+      border: 1px dashed rgba(97, 65, 34, 0.18);
+    }
+
+    .focus-card {
+      margin: 28px 0 0;
+      display: none;
+      background: linear-gradient(135deg, #fff8ef, #fff2df);
+      border: 1px solid rgba(138, 46, 28, 0.12);
+      box-shadow: var(--shadow);
+      border-radius: 28px;
+      padding: 22px;
+    }
+
+    .focus-card.visible {
+      display: block;
+    }
+
+    .focus-card h2 {
+      margin: 10px 0 14px;
+      font-size: clamp(22px, 3vw, 34px);
+      line-height: 1.35;
+    }
+
+    .focus-answer {
+      font-size: 18px;
+      line-height: 1.8;
+      color: #422616;
+      margin: 0;
+      padding: 18px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.72);
+      border: 1px dashed rgba(138, 46, 28, 0.18);
+    }
+
+    .print-tip {
+      margin-top: 16px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .duplex-print {
+      display: none;
+    }
+
+    .print-sheet {
+      margin-top: 20px;
+      padding: 16mm 14mm;
+      background: #fffefb;
+      border: 1px dashed rgba(97, 65, 34, 0.18);
+      border-radius: 24px;
+    }
+
+    .print-sheet-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10mm;
+      color: #6c5641;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .print-sheet-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8mm;
+    }
+
+    .print-card {
+      min-height: 58mm;
+      border: 1px solid #cbb9a4;
+      border-radius: 5mm;
+      padding: 5mm;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      background:
+        linear-gradient(180deg, rgba(255, 248, 238, 0.96), rgba(255, 255, 255, 0.98));
+    }
+
+    .print-card.back {
+      background:
+        linear-gradient(180deg, rgba(255, 245, 228, 0.98), rgba(255, 252, 246, 0.98));
+    }
+
+    .print-card-label {
+      display: inline-flex;
+      align-self: flex-start;
+      border-radius: 999px;
+      padding: 4px 10px;
+      background: rgba(138, 46, 28, 0.08);
+      color: var(--accent);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .print-card-index {
+      color: #78624d;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .print-card-main {
+      margin: 10px 0;
+      font-size: 16px;
+      line-height: 1.55;
+      font-weight: 700;
+      color: #2d2016;
+    }
+
+    .print-card.back .print-card-main {
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .print-card-foot {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: flex-end;
+      color: #75604e;
+      font-size: 12px;
+    }
+
+    @media (max-width: 860px) {
+      .stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 640px) {
+      .wrap {
+        width: min(100vw - 20px, 1280px);
+        padding-top: 18px;
+      }
+
+      .hero,
+      .controls,
+      .focus-card {
+        padding: 18px;
+      }
+
+      .stats {
+        grid-template-columns: 1fr;
+      }
+
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media print {
+      body {
+        background: #fff;
+      }
+
+      .wrap {
+        width: 100%;
+        padding: 0;
+      }
+
+      .hero,
+      .controls,
+      .result-bar,
+      .focus-card {
+        display: none !important;
+      }
+
+      .grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10mm;
+      }
+
+      .card {
+        min-height: auto;
+        box-shadow: none;
+        break-inside: avoid;
+        border-radius: 12px;
+        border: 1px solid #b8a590;
+      }
+
+      .card .a {
+        display: block !important;
+        background: #fff;
+      }
+
+      .card-actions {
+        display: none !important;
+      }
+
+      body.print-duplex .grid {
+        display: none !important;
+      }
+
+      body.print-duplex .duplex-print {
+        display: block !important;
+      }
+
+      body.print-duplex .print-sheet {
+        margin: 0;
+        border: 0;
+        border-radius: 0;
+        padding: 10mm 8mm;
+        break-after: page;
+      }
+
+      body.print-duplex .print-sheet:last-child {
+        break-after: auto;
+      }
+
+      body.print-duplex .print-sheet-grid {
+        gap: 6mm;
+      }
+
+      body.print-duplex .print-card {
+        min-height: 64mm;
+        break-inside: avoid;
+        box-shadow: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <div class="eyebrow">STEAK FLASHCARDS</div>
+      <h1>牛扒知识卡工具</h1>
+      <p class="subtitle">把 Excel 里的牛扒知识整理成一套可以搜索、筛选、翻卡、随机抽查、批量打印的本地工具。适合培训、门店晨会、产品学习和服务话术演练。</p>
+      <div class="stats">
+        <div class="stat">
+          <b id="totalCount">0</b>
+          <span>总卡片数</span>
+        </div>
+        <div class="stat">
+          <b id="visibleCount">0</b>
+          <span>当前显示</span>
+        </div>
+        <div class="stat">
+          <b id="categoryCount">0</b>
+          <span>知识分类</span>
+        </div>
+        <div class="stat">
+          <b>A4</b>
+          <span>已适配打印布局</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="controls">
+      <div class="controls-row">
+        <input id="searchInput" class="search" type="search" placeholder="搜索问题、答案或部位，例如：菲力 / 肋眼 / 全熟 / 服务">
+        <button id="toggleAllBtn" class="btn-primary">显示全部答案</button>
+        <button id="randomBtn" class="btn-dark">随机抽一张</button>
+        <button id="shuffleBtn" class="btn-secondary">打乱顺序</button>
+        <button id="printBtn" class="btn-secondary">打印卡片</button>
+        <button id="duplexPrintBtn" class="btn-secondary">双面卡片打印</button>
+      </div>
+      <div class="controls-row" id="categoryChips"></div>
+      <div class="toolbar-note">操作提示：普通“打印卡片”会在同一面显示问答；“双面卡片打印”会生成正面问题、背面答案的实体卡布局，建议打印时启用双面并选择长边翻转。</div>
+    </section>
+
+    <section id="focusCard" class="focus-card" aria-live="polite"></section>
+
+    <div class="result-bar">
+      <div id="resultText">正在加载卡片...</div>
+      <div class="print-tip">建议打印时选择纵向、边距“默认”或“窄边距”。</div>
+    </div>
+
+    <main id="cardGrid" class="grid"></main>
+    <section id="duplexPrint" class="duplex-print"></section>
+  </div>
+
+  <script>
+    const flashcards = [
+      { question: "决定牛排区别的三个核心本质要素是什么？", answer: "肌肉脂肪的分布、对热量的反应以及烹饪技法。" },
+      { question: "为什么运动极少的肌肉（如里脊）纤维极细？", answer: "这类肌肉很少承受压力，因此纤维保持细嫩，带来极致柔嫩的口感。" },
+      { question: "经常运动的牛体部位在口感和风味上有什么特点？", answer: "纤维较粗、咬感紧实，但拥有更强的牛肉风味。" },
+      { question: "牛排内部的“大理石纹”在烹饪过程中起什么作用？", answer: "从内部融化，为肉质提供丰沛的汁水与浓郁风味。" },
+      { question: "牛排外部脂肪盖（Fat Cap）在烹饪时的主要功能是什么？", answer: "在受热过程中起到保护肉质的作用。" },
+      { question: "菲力牛排（Filet Mignon）的主要物理特征是什么？", answer: "纤维极细，无结缔组织，质地如黄油般柔嫩但风味较温和。" },
+      { question: "为了防止菲力牛排内部水分流失变干，应采取怎样的烹饪建议？", answer: "采取厚切方式，并使用极高温快煎。" },
+      { question: "肋眼牛排（Ribeye）取自牛的哪个肋骨区间？", answer: "第6至第12根肋骨之间。" },
+      { question: "肋眼牛排最显著的特征是什么？", answer: "拥有极致的大理石纹分布。" },
+      { question: "纽约客/西冷牛排（New York Strip）的外观标志性特征是什么？", answer: "侧边带有一层明显的脂肪盖。" },
+      { question: "相比菲力，纽约客牛排在口感上的定位是什么？", answer: "介于瘦肉与脂肪之间，咬感更紧实、有结构。" },
+      { question: "波特豪斯牛排（Porterhouse）与普通T骨牛排相比，其“菲力”部分有何不同？", answer: "波特豪斯切自腰脊部更靠后的位置，包含更大块的菲力。" },
+      { question: "T型骨在烹饪过程中对肉质有什么物理保护作用？", answer: "骨骼能减缓水分流失并保留热量。" },
+      { question: "战斧牛排（Tomahawk）在解剖学本质上属于哪种牛排的变体？", answer: "保留了经过法式修整后的长肋骨的特厚肋眼牛排。" },
+      { question: "烹饪战斧牛排时，如何防止外表烧焦而内部未熟？", answer: "先在高温下煎出外壳，再转移到烤箱或间接热源中完成烹饪（先煎后烤）。" },
+      { question: "臀腰肉（Rump Steak）由于承受大量运动，其肉质特征如何？", answer: "脂肪极少，肉质比高级部位更硬，但牛肉风味极强。" },
+      { question: "沙朗/西冷（Sirloin）在日常餐饮中的定位是什么？", answer: "极具性价比，适合煎烤、做烤串或快炒。" },
+      { question: "板腱牛排（Flat Iron）是如何获得接近高级部位的柔嫩感的？", answer: "通过工艺移除肩胛部坚硬的中央结缔组织。" },
+      { question: "肩胛眼（Chuck Eye）在风味上与哪种昂贵部位最接近？", answer: "肋眼牛排（它是肋眼的近亲）。" },
+      { question: "侧腹牛排（Flank Steak）在解剖学上的纤维排列特征是什么？", answer: "扁平狭长，纤维同向排列极其明显。" },
+      { question: "裙带牛排（Skirt Steak）在烹饪处理上的优势是什么？", answer: "纹理疏松，吸收腌料极快，且极高温煎烤能形成绝佳焦褐感。" },
+      { question: "扇面/巴维特（Bavette）在受热时油脂的表现如何？", answer: "内部脂肪受热软化而不流失，使肉质多汁且带有微嚼劲。" },
+      { question: "决定纤维明显部位（如侧腹、裙带）咀嚼体验的最关键步骤是什么？", answer: "烹饪后的逆纹薄切。" },
+      { question: "顺纹切牛排会导致怎样的咀嚼感受？", answer: "长纤维完好无损，如同咀嚼极韧的橡皮筋。" },
+      { question: "逆纹切片的物理原理是什么？", answer: "刀锋将长纤维切断成极短结构，大幅降低咀嚼难度。" },
+      { question: "封门柳（Hanger Steak）为何在历史上常被屠夫私留？", answer: "因为其每头牛仅有一条，质地柔软且具有深度的矿物质/肝脏风味。" },
+      { question: "皮卡尼亚（Picanha）作为巴西烤肉主角，其串烤时的脂肪朝向是？", answer: "脂肪盖向外，以便融化的油脂持续浇灌内部瘦肉。" },
+      { question: "三角肉（Tri-Tip）是美国哪个地区BBQ的标志性切块？", answer: "加州圣玛丽亚（Santa Maria）。" },
+      { question: "在牛排定位矩阵中，哪种部位处于“温和柔润”与“入口即化”的顶端？", answer: "菲力（Filet Mignon）。" },
+      { question: "牛排侍肉师服务的“米黄金法则”是什么？", answer: "永远不要纠正客人。" },
+      { question: "当客人点单“8分熟”时，专业的实战应对方式是？", answer: "微笑下单“7分熟（Medium Well）”，绝对禁止告知客人没有双数熟度。" },
+      { question: "牛排服务中如何避免给人“露怯”的感觉？", answer: "建立“客人可能更早接触牛排”的观念，将核心优势放在最了解自家菜单上。" },
+      { question: "高温牛排炉（High-Temperature Broiler）的实战话术重点是什么？", answer: "利用接近 600°C 的高温瞬间锁住肉汁，烤出漂亮的焦化层。" },
+      { question: "高温碳烤炉（Charcoal Grill）能为牛排带来怎样的风味层次？", answer: "迷人的烟熏炭火香气。" },
+      { question: "当客人追求“稳妥、经典、奶香味足”时，应推荐哪个产区的牛肉？", answer: "澳洲（Australia）。" },
+      { question: "南美洲牛肉的主要风味特征是什么？", answer: "浓郁的野性肉香，草饲风味明显，性价比高。" },
+      { question: "M3西冷（Striploin）的一句话卖点是什么？", answer: "脂香和肉香的完美平衡，带有一圈标志性脂肪。" },
+      { question: "牛小排（Short Rib）最适合哪类口味偏好的客人？", answer: "喜欢丰腴口感、重度嗜肉、不怕腻的客人。" },
+      { question: "牛腩排（Flank Steak）为什么被称为“健身人士的福音”？", answer: "以瘦肉为主，脂肪极少，适合追求健康低脂的人士。" },
+      { question: "三分熟（Medium Rare）牛排的核心视觉特征是什么？", answer: "核心呈温热的红肉状态。" },
+      { question: "五分熟（Medium）牛排在市场受众上有何特点？", answer: "核心呈粉红色，是受众最广的熟度。" },
+      { question: "为什么牛腹心肉和牛腩排不建议做得太生或太熟？", answer: "太生咬不动，太熟会变柴。" },
+      { question: "七分熟（Medium Well）的核心色泽是什么？", answer: "核心仅剩一点淡粉色。" },
+      { question: "如果客人坚持要全熟（Well Done），侍肉师应如何处理？", answer: "尽量委婉劝阻，若客人坚持，则依然微笑提供。" },
+      { question: "在点单引导阶段，可以向犹豫的客人提出哪两个核心维度的发问？", answer: "您想吃油脂丰富一点的，还是肉味浓郁一点的？" },
+      { question: "上菜时放置盘子的专业动作要求是？", answer: "轻轻放置，绝对不要将盘子往桌上一怼。" },
+      { question: "两口检查（The Two-Bite Check）的核心目的是什么？", answer: "在客人刚开始用餐时确认熟度是否符合其口味要求。" },
+      { question: "如果两口检查时客人表示熟度不对，标准的应对流程是？", answer: "立刻撤下处理，绝不找借口。" },
+      { question: "在牛排服务中，提供哪种工具能提升客人的专业体验感？", answer: "专业的牛扒刀。" },
+      { question: "定位矩阵中，哪种部位被标记为风味最浓郁狂野？", answer: "封门柳（Hanger）。" },
+      { question: "在服务节奏上，侍肉师应遵循怎样的沟通原则？", answer: "只在客人需要时提供恰到好处的信息，拒绝背诵长篇大论。" },
+      { question: "哪些部位被归类为高性价比的实用主义？", answer: "臀腰肉（Rump）和沙朗/西冷（Sirloin）。" },
+      { question: "牛小排（Short Rib）在熟度建议上为何被标记为强烈推荐全熟？", answer: "其脂肪极其丰富，需要更高温度逼出油脂香气。" },
+      { question: "服务话术中提到利用极高温度瞬间锁住肉汁是指哪种设备？", answer: "高温牛排炉（接近 600°C）。" },
+      { question: "臀腰盖（Picanha）的一句话卖点是什么？", answer: "巴西烤肉的灵魂，顶部的厚脂肪盖在碳烤时能逼出销魂香气。" }
+    ];
+
+    const categoryRules = [
+      { name: "基础原理", keywords: ["核心本质", "肌肉", "大理石纹", "脂肪盖", "逆纹", "顺纹", "纤维"] },
+      { name: "部位认知", keywords: ["菲力", "肋眼", "纽约客", "西冷", "波特豪斯", "T骨", "战斧", "板腱", "肩胛眼", "侧腹", "裙带", "巴维特", "封门柳", "皮卡尼亚", "三角肉", "牛小排", "臀腰", "牛腩排"] },
+      { name: "烹饪建议", keywords: ["烹饪", "高温", "烤", "煎", "熟度", "全熟", "三分熟", "五分熟", "七分熟"] },
+      { name: "服务话术", keywords: ["客人", "侍肉师", "服务", "点单", "上菜", "检查", "工具", "沟通原则"] },
+      { name: "推荐卖点", keywords: ["推荐", "产区", "卖点", "风味", "性价比", "定位矩阵", "BBQ"] }
+    ];
+
+    const state = {
+      search: "",
+      category: "全部",
+      showAllAnswers: false,
+      printMode: "standard",
+      cards: flashcards.map((item, index) => ({
+        id: index + 1,
+        ...item,
+        category: detectCategory(item)
+      }))
+    };
+
+    const grid = document.getElementById("cardGrid");
+    const resultText = document.getElementById("resultText");
+    const categoryChips = document.getElementById("categoryChips");
+    const totalCount = document.getElementById("totalCount");
+    const visibleCount = document.getElementById("visibleCount");
+    const categoryCount = document.getElementById("categoryCount");
+    const focusCard = document.getElementById("focusCard");
+    const searchInput = document.getElementById("searchInput");
+    const toggleAllBtn = document.getElementById("toggleAllBtn");
+    const duplexPrint = document.getElementById("duplexPrint");
+
+    function detectCategory(item) {
+      const text = `${item.question} ${item.answer}`;
+      const match = categoryRules.find(rule => rule.keywords.some(keyword => text.includes(keyword)));
+      return match ? match.name : "其他知识";
+    }
+
+    function escapeHtml(text) {
+      return text
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
+    function renderCategories() {
+      const names = ["全部", ...new Set(state.cards.map(card => card.category))];
+      categoryCount.textContent = names.length - 1;
+      categoryChips.innerHTML = names.map(name => `
+        <button class="chip ${state.category === name ? "active" : ""}" data-category="${name}">
+          ${name}
+        </button>
+      `).join("");
+    }
+
+    function getVisibleCards() {
+      const keyword = state.search.trim().toLowerCase();
+      return state.cards.filter(card => {
+        const categoryMatched = state.category === "全部" || card.category === state.category;
+        const keywordMatched = !keyword || `${card.question} ${card.answer} ${card.category}`.toLowerCase().includes(keyword);
+        return categoryMatched && keywordMatched;
+      });
+    }
+
+    function renderFocus(card) {
+      if (!card) {
+        focusCard.classList.remove("visible");
+        focusCard.innerHTML = "";
+        return;
+      }
+
+      focusCard.classList.add("visible");
+      focusCard.innerHTML = `
+        <div class="eyebrow">随机抽查</div>
+        <h2>${escapeHtml(card.question)}</h2>
+        <p class="focus-answer">${escapeHtml(card.answer)}</p>
+      `;
+      focusCard.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    function mirrorChunkForBack(chunk) {
+      const mirrored = [];
+      for (let index = 0; index < chunk.length; index += 2) {
+        const left = chunk[index];
+        const right = chunk[index + 1];
+        if (right) mirrored.push(right);
+        if (left) mirrored.push(left);
+      }
+      return mirrored;
+    }
+
+    function renderDuplexPrint(cards) {
+      const pageSize = 8;
+      if (!cards.length) {
+        duplexPrint.innerHTML = "";
+        return;
+      }
+
+      const sheets = [];
+      for (let start = 0; start < cards.length; start += pageSize) {
+        const chunk = cards.slice(start, start + pageSize);
+        const backChunk = mirrorChunkForBack(chunk);
+        const pageNumber = Math.floor(start / pageSize) + 1;
+
+        sheets.push(`
+          <section class="print-sheet">
+            <div class="print-sheet-header">
+              <span>Steak Flashcards Front</span>
+              <span>第 ${pageNumber} 组正面</span>
+            </div>
+            <div class="print-sheet-grid">
+              ${chunk.map(card => `
+                <article class="print-card front">
+                  <span class="print-card-label">${escapeHtml(card.category)}</span>
+                  <div class="print-card-main">${escapeHtml(card.question)}</div>
+                  <div class="print-card-foot">
+                    <span class="print-card-index">#${card.id}</span>
+                    <span>问题面</span>
+                  </div>
+                </article>
+              `).join("")}
+            </div>
+          </section>
+          <section class="print-sheet">
+            <div class="print-sheet-header">
+              <span>Steak Flashcards Back</span>
+              <span>第 ${pageNumber} 组背面</span>
+            </div>
+            <div class="print-sheet-grid">
+              ${backChunk.map(card => `
+                <article class="print-card back">
+                  <span class="print-card-label">${escapeHtml(card.category)}</span>
+                  <div class="print-card-main">${escapeHtml(card.answer)}</div>
+                  <div class="print-card-foot">
+                    <span class="print-card-index">#${card.id}</span>
+                    <span>答案面</span>
+                  </div>
+                </article>
+              `).join("")}
+            </div>
+          </section>
+        `);
+      }
+
+      duplexPrint.innerHTML = sheets.join("");
+    }
+
+    function renderCards() {
+      const visible = getVisibleCards();
+      renderDuplexPrint(visible);
+      totalCount.textContent = state.cards.length;
+      visibleCount.textContent = visible.length;
+      resultText.textContent = state.category === "全部"
+        ? `当前展示 ${visible.length} / ${state.cards.length} 张知识卡`
+        : `当前分类：${state.category}，展示 ${visible.length} 张知识卡`;
+
+      if (!visible.length) {
+        grid.innerHTML = `<div class="empty">没有匹配到卡片，可以试试更短的关键词，或切换到“全部”分类。</div>`;
+        return;
+      }
+
+      grid.innerHTML = visible.map(card => `
+        <article class="card ${state.showAllAnswers ? "show-answer" : ""}" data-id="${card.id}">
+          <div class="card-top">
+            <span class="tag">${escapeHtml(card.category)}</span>
+            <span class="index">#${card.id}</span>
+          </div>
+          <div class="card-body">
+            <p class="q">${escapeHtml(card.question)}</p>
+            <p class="a">${escapeHtml(card.answer)}</p>
+            <div class="card-actions">
+              <button class="card-btn" data-action="toggle">翻看答案</button>
+              <button class="card-btn" data-action="focus">抽到主卡区</button>
+            </div>
+          </div>
+        </article>
+      `).join("");
+    }
+
+    function shuffleCards() {
+      const cloned = [...state.cards];
+      for (let i = cloned.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [cloned[i], cloned[j]] = [cloned[j], cloned[i]];
+      }
+      state.cards = cloned;
+      renderCards();
+    }
+
+    renderCategories();
+    renderCards();
+
+    searchInput.addEventListener("input", event => {
+      state.search = event.target.value;
+      renderCards();
+    });
+
+    categoryChips.addEventListener("click", event => {
+      const button = event.target.closest("[data-category]");
+      if (!button) return;
+      state.category = button.dataset.category;
+      renderCategories();
+      renderCards();
+    });
+
+    document.getElementById("toggleAllBtn").addEventListener("click", () => {
+      state.showAllAnswers = !state.showAllAnswers;
+      toggleAllBtn.textContent = state.showAllAnswers ? "隐藏全部答案" : "显示全部答案";
+      renderCards();
+    });
+
+    document.getElementById("randomBtn").addEventListener("click", () => {
+      const visible = getVisibleCards();
+      if (!visible.length) return;
+      const picked = visible[Math.floor(Math.random() * visible.length)];
+      renderFocus(picked);
+    });
+
+    document.getElementById("shuffleBtn").addEventListener("click", shuffleCards);
+    document.getElementById("printBtn").addEventListener("click", () => {
+      state.printMode = "standard";
+      document.body.classList.remove("print-duplex");
+      window.print();
+    });
+    document.getElementById("duplexPrintBtn").addEventListener("click", () => {
+      state.printMode = "duplex";
+      document.body.classList.add("print-duplex");
+      renderDuplexPrint(getVisibleCards());
+      window.print();
+    });
+
+    window.addEventListener("afterprint", () => {
+      if (state.printMode === "duplex") {
+        document.body.classList.remove("print-duplex");
+        state.printMode = "standard";
+      }
+    });
+
+    grid.addEventListener("click", event => {
+      const actionBtn = event.target.closest("[data-action]");
+      if (!actionBtn) return;
+
+      const cardEl = actionBtn.closest(".card");
+      if (!cardEl) return;
+
+      const card = state.cards.find(item => String(item.id) === cardEl.dataset.id);
+      if (!card) return;
+
+      if (actionBtn.dataset.action === "toggle") {
+        cardEl.classList.toggle("show-answer");
+      }
+
+      if (actionBtn.dataset.action === "focus") {
+        renderFocus(card);
+      }
+    });
+  </script>
+</body>
+</html>
