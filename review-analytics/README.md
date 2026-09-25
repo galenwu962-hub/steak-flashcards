@@ -87,6 +87,15 @@ uvicorn app.server:app --port 8000
 
 接口：`/api/overview` `/api/trend` `/api/stores` `/api/aspects` `/api/dishes` `/api/segments` `/api/business` `/api/alerts` `/api/reviews`，参数 `from`、`to`、`stores`、`platform`。
 
+## 离线版看板（不用服务器）
+
+```bash
+python -m app.export_static            # 输出到 data/static/
+```
+
+生成 `standalone.html`（双击就能打开，含全部数据和图表库）以及可以托管的 `index.html + data.js + echarts.min.js`。
+离线版预先算好了四个固定时间段 × 每家门店 × 每个平台的所有数据，自定义日期不可用；评价明细只带最近 90 天。
+
 ## 日常更新
 
 每天（或每周）重复"拉取 → 导入 → analyze batch → collect"即可，都是增量的。可以放进 cron。
