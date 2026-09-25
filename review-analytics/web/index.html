@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>评价洞察</title>
+<script src="/static/echarts.min.js"></script>
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7; --surface: #fcfcfb; --border: rgba(11,11,11,.10);
+  --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781; --grid: #e1e0d9; --axis: #c3c2b7;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s7: #4a3aa7; --s8: #e34948;
+  --pos: #2a78d6; --neg: #e34948; --neu: #c3c2b7;
+  --good: #006300; --bad: #d03b3b; --warn: #fab219;
+  --seq-1: #cde2fb; --seq-7: #0d366b;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --border: rgba(255,255,255,.10);
+    --ink: #ffffff; --ink-2: #c3c2b7; --muted: #898781; --grid: #2c2c2a; --axis: #383835;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s7: #9085e9; --s8: #e66767;
+    --pos: #3987e5; --neg: #e66767; --neu: #55544f; --good: #0ca30c;
+    --seq-1: #184f95; --seq-7: #9ec5f4;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --border: rgba(255,255,255,.10);
+  --ink: #ffffff; --ink-2: #c3c2b7; --muted: #898781; --grid: #2c2c2a; --axis: #383835;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s7: #9085e9; --s8: #e66767;
+  --pos: #3987e5; --neg: #e66767; --neu: #55544f; --good: #0ca30c;
+  --seq-1: #184f95; --seq-7: #9ec5f4;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--ink); font: 14px/1.5 system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
+header { position: sticky; top: 0; z-index: 5; background: var(--surface); border-bottom: 1px solid var(--border); padding: 10px 16px; }
+.wrap { max-width: 1440px; margin: 0 auto; padding: 0 16px 48px; }
+h1 { font-size: 18px; margin: 0 0 8px; }
+h2 { font-size: 16px; margin: 32px 0 12px; }
+h3 { font-size: 14px; margin: 0 0 8px; color: var(--ink-2); font-weight: 600; }
+.filters { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+.filters label { color: var(--ink-2); font-size: 13px; }
+.filters select, .filters input, .filters button { font: inherit; padding: 4px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--ink); }
+.filters button.on { background: var(--s1); color: #fff; border-color: var(--s1); }
+.note { color: var(--muted); font-size: 12px; margin: 8px 0 0; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 16px; }
+.tile { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+.tile .k { color: var(--ink-2); font-size: 12px; }
+.tile .v { font-size: 26px; font-weight: 600; margin: 2px 0; }
+.tile .d { font-size: 12px; color: var(--muted); }
+.tile .d.up { color: var(--good); } .tile .d.down { color: var(--bad); }
+.grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 12px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; grid-column: span 12; min-width: 0; }
+.c6 { grid-column: span 6; } .c4 { grid-column: span 4; } .c8 { grid-column: span 8; }
+@media (max-width: 900px) { .c6, .c4, .c8 { grid-column: span 12; } }
+.chart { width: 100%; height: 300px; }
+.chart.tall { height: 420px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--grid); vertical-align: top; }
+th { color: var(--ink-2); font-weight: 600; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.alert { border-left: 3px solid var(--bad); padding: 6px 10px; margin: 6px 0; background: var(--surface); border-radius: 0 6px 6px 0; }
+.alert.watch { border-left-color: var(--warn); }
+.empty { color: var(--muted); padding: 24px; text-align: center; }
+.chips span { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 10px; margin: 2px 4px 2px 0; border: 1px solid var(--border); color: var(--ink-2); }
+.chips span.neg { border-color: var(--neg); color: var(--neg); }
+.chips span.pos { border-color: var(--pos); color: var(--pos); }
+.review { padding: 10px 0; border-bottom: 1px solid var(--grid); }
+.review .meta { color: var(--muted); font-size: 12px; }
+.review .text { margin: 4px 0; white-space: pre-wrap; }
+.review .sum { color: var(--ink-2); font-size: 13px; }
+.review .reply { color: var(--ink-2); font-size: 13px; background: var(--page); padding: 6px 8px; border-radius: 6px; margin-top: 4px; }
+.risk { color: var(--bad); font-weight: 600; }
+.pager { display: flex; gap: 8px; align-items: center; margin-top: 8px; color: var(--muted); }
+.legend { font-size: 12px; color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>评价洞察 <span class="legend" id="meta-line"></span></h1>
+  <div class="filters">
+    <label>时间</label>
+    <span id="presets">
+      <button data-days="7">近7天</button><button data-days="30" class="on">近30天</button><button data-days="90">近90天</button><button data-days="365">近一年</button>
+    </span>
+    <input type="date" id="from"> <span class="legend">至</span> <input type="date" id="to">
+    <label>门店</label><select id="store"><option value="">全部门店</option></select>
+    <label>平台</label><select id="platform"><option value="">全部</option></select>
+    <button id="apply">查询</button>
+  </div>
+  <p class="note" id="defs"></p>
+</header>
+
+<div class="wrap">
+  <div class="tiles" id="tiles"></div>
+
+  <h2>预警</h2>
+  <div class="card" id="alerts"></div>
+
+  <h2>趋势</h2>
+  <div class="grid">
+    <div class="card c8"><h3>每日评价量（按平台）</h3><div class="chart" id="trend-count"></div></div>
+    <div class="card c4"><h3>差评率</h3><div class="chart" id="trend-neg"></div></div>
+  </div>
+
+  <h2>门店</h2>
+  <div class="grid">
+    <div class="card c6"><h3>各店差评率与评价量</h3><div class="chart tall" id="store-chart"></div></div>
+    <div class="card c6"><h3>门店明细（对比上一周期）</h3><div id="store-table"></div></div>
+  </div>
+
+  <h2>顾客在说什么</h2>
+  <div class="grid">
+    <div class="card c4"><h3>按大类：正面 / 负面提及</h3><div class="chart" id="cat-chart"></div></div>
+    <div class="card c8"><h3>负面提及最多的细项（对比上一周期）</h3><div class="chart tall" id="aspect-chart"></div></div>
+    <div class="card"><h3>门店 × 细项 负面提及热力图</h3><div class="chart tall" id="heat-chart"></div></div>
+  </div>
+
+  <h2>菜品</h2>
+  <div class="grid">
+    <div class="card c6"><h3>被提及最多的菜品</h3><div class="chart tall" id="dish-chart"></div></div>
+    <div class="card c6"><h3>差评率最高的菜品（负面 ≥ 2 次）</h3><div id="dish-table"></div></div>
+    <div class="card"><h3>菜品被吐槽的具体点</h3><div id="dish-complaints"></div></div>
+  </div>
+
+  <h2>细分对比：谁在给差评</h2>
+  <div class="grid" id="segments"></div>
+
+  <h2>口碑与经营</h2>
+  <div class="grid">
+    <div class="card c6"><h3>曝光、购买、评价量（指数，期初 = 100）</h3><div class="chart" id="biz-index"></div></div>
+    <div class="card c6"><h3>实付金额与差评数</h3><div class="chart" id="biz-rev"></div></div>
+  </div>
+
+  <h2>评价明细</h2>
+  <div class="card">
+    <div class="filters" style="margin-bottom:8px">
+      <select id="r-sent"><option value="">全部倾向</option><option value="negative">差评（统一口径）</option><option value="neutral">AI 中性</option><option value="positive">AI 积极</option></select>
+      <select id="r-aspect"><option value="">全部细项（负面）</option></select>
+      <input id="r-dish" placeholder="菜品" size="12">
+      <select id="r-risk"><option value="">全部风险</option><option value="high">高风险</option><option value="watch">需关注</option></select>
+      <input id="r-q" placeholder="搜索评价内容" size="18">
+      <button id="r-go">筛选</button>
+    </div>
+    <div id="reviews"></div>
+    <div class="pager"><button id="r-prev">上一页</button><span id="r-page"></span><button id="r-next">下一页</button></div>
+  </div>
+</div>
+
+<script>
+const css = k => getComputedStyle(document.documentElement).getPropertyValue(k).trim();
+const fmtPct = v => v == null ? '–' : (v * 100).toFixed(1) + '%';
+const fmtNum = v => v == null ? '–' : Number(v).toLocaleString('zh-CN');
+const charts = {};
+function chart(id) { if (!charts[id]) charts[id] = echarts.init(document.getElementById(id)); return charts[id]; }
+window.addEventListener('resize', () => Object.values(charts).forEach(c => c.resize()));
+const base = () => ({
+  textStyle: { fontFamily: 'inherit', color: css('--ink-2') },
+  grid: { left: 8, right: 16, top: 32, bottom: 8, containLabel: true },
+  tooltip: { trigger: 'axis', backgroundColor: css('--surface'), borderColor: css('--border'), textStyle: { color: css('--ink') } },
+  legend: { top: 0, textStyle: { color: css('--ink-2') }, itemWidth: 12, itemHeight: 8 },
+});
+const axisX = extra => ({ type: 'category', axisLine: { lineStyle: { color: css('--axis') } }, axisTick: { show: false }, axisLabel: { color: css('--muted') }, ...extra });
+const axisY = extra => ({ type: 'value', splitLine: { lineStyle: { color: css('--grid') } }, axisLabel: { color: css('--muted') }, ...extra });
+const bar = (name, data, color, extra) => ({ type: 'bar', name, data, itemStyle: { color, borderRadius: [3, 3, 0, 0] }, barMaxWidth: 28, ...extra });
+const line = (name, data, color, extra) => ({ type: 'line', name, data, showSymbol: false, lineStyle: { width: 2, color }, itemStyle: { color }, ...extra });
+const placeholder = text => ({ title: { text, left: 'center', top: 'middle', textStyle: { color: css('--muted'), fontSize: 13, fontWeight: 400 } }, xAxis: { show: false }, yAxis: { show: false }, series: [] });
+
+const state = { from: null, to: null, stores: [], platform: '', page: 1 };
+let META = null;
+
+function qs(extra = {}) {
+  const p = new URLSearchParams({ from: state.from, to: state.to });
+  if (state.stores.length) p.set('stores', state.stores.join(','));
+  if (state.platform) p.set('platform', state.platform);
+  Object.entries(extra).forEach(([k, v]) => v !== '' && v != null && p.set(k, v));
+  return p.toString();
+}
+const api = (path, extra) => fetch(`/api/${path}?${qs(extra)}`).then(r => r.json());
+
+async function init() {
+  META = await fetch('/api/meta').then(r => r.json());
+  document.getElementById('meta-line').textContent = `共 ${fmtNum(META.reviews)} 条评价，已 AI 解析 ${fmtNum(META.analyzed)} 条，数据 ${META.date_min} 至 ${META.date_max}`;
+  document.getElementById('defs').textContent = `口径：${Object.entries(META.definitions).map(([k, v]) => `${k} = ${v}`).join('；')}`;
+  const sel = document.getElementById('store');
+  META.stores.forEach(s => { const o = document.createElement('option'); o.value = s.id; o.textContent = `${s.name}（${fmtNum(s.n)}）`; sel.appendChild(o); });
+  const ps = document.getElementById('platform');
+  META.platforms.forEach(p => { const o = document.createElement('option'); o.value = p; o.textContent = p; ps.appendChild(o); });
+  setPreset(30);
+  document.querySelectorAll('#presets button').forEach(b => b.onclick = () => { document.querySelectorAll('#presets button').forEach(x => x.classList.remove('on')); b.classList.add('on'); setPreset(+b.dataset.days); load(); });
+  document.getElementById('apply').onclick = () => { readFilters(); load(); };
+  document.getElementById('r-go').onclick = () => { state.page = 1; loadReviews(); };
+  document.getElementById('r-prev').onclick = () => { if (state.page > 1) { state.page--; loadReviews(); } };
+  document.getElementById('r-next').onclick = () => { state.page++; loadReviews(); };
+  load();
+}
+function setPreset(days) {
+  const end = new Date(META.date_max || Date.now());
+  const start = new Date(end); start.setDate(end.getDate() - days + 1);
+  document.getElementById('to').value = end.toISOString().slice(0, 10);
+  document.getElementById('from').value = start.toISOString().slice(0, 10);
+  readFilters();
+}
+function readFilters() {
+  state.from = document.getElementById('from').value; state.to = document.getElementById('to').value;
+  state.stores = document.getElementById('store').value ? [document.getElementById('store').value] : [];
+  state.platform = document.getElementById('platform').value; state.page = 1;
+}
+
+async function load() {
+  const [ov, tr, st, asp, dish, seg, biz, al] = await Promise.all([
+    api('overview'), api('trend'), api('stores'), api('aspects'), api('dishes'), api('segments'), api('business'), api('alerts')]);
+  renderTiles(ov); renderAlerts(al); renderTrend(tr); renderStores(st); renderAspects(asp); renderDishes(dish); renderSegments(seg); renderBusiness(biz);
+  loadReviews();
+}
+
+function delta(cur, prev, invert, pct) {
+  if (cur == null || prev == null || prev === 0) return { text: '上期 –', cls: '' };
+  const d = pct ? (cur - prev) * 100 : (cur - prev) / prev * 100;
+  const good = invert ? d < 0 : d > 0;
+  return { text: `${d > 0 ? '+' : ''}${d.toFixed(1)}${pct ? ' pp' : '%'} vs 上期`, cls: Math.abs(d) < 0.5 ? '' : (good ? 'up' : 'down') };
+}
+function renderTiles(ov) {
+  const c = ov.current, p = ov.previous;
+  const items = [
+    ['评价量', fmtNum(c.reviews), delta(c.reviews, p.reviews)],
+    ['差评数', fmtNum(c.negatives), delta(c.negatives, p.negatives, true)],
+    ['差评率', fmtPct(c.neg_rate), delta(c.neg_rate, p.neg_rate, true, true)],
+    ['平均星级', c.avg_star ? c.avg_star.toFixed(2) : '–', delta(c.avg_star, p.avg_star)],
+    ['高风险评价', fmtNum(c.high_risk), delta(c.high_risk, p.high_risk, true)],
+    ['高V用户评价', fmtNum(c.high_v), delta(c.high_v, p.high_v)],
+    ['AI 已解析', c.reviews ? fmtPct(c.analyzed / c.reviews) : '–', { text: `低分 ${c.low_star ?? 0} 条 · AI 消极 ${c.ai_negative ?? 0} 条`, cls: '' }],
+  ];
+  document.getElementById('tiles').innerHTML = items.map(([k, v, d]) => `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div><div class="d ${d.cls}">${d.text}</div></div>`).join('');
+}
+function renderAlerts(al) {
+  const el = document.getElementById('alerts');
+  const parts = [];
+  al.spikes.forEach(s => parts.push(`<div class="alert">${s.store}：最近 7 天差评 ${s.negatives_7d} 条（此前 4 周平均每周 ${s.weekly_baseline} 条），评价量 ${s.reviews_7d}</div>`));
+  al.high_risk.forEach(r => parts.push(`<div class="alert"><span class="risk">高风险</span> ${r.store} · ${r.review_time} · ${r.star ?? '–'}★<br>${r.summary || (r.content || '').slice(0, 80)}</div>`));
+  el.innerHTML = parts.length ? parts.join('') : `<div class="empty">窗口 ${al.window.from} 至 ${al.window.to} 内没有差评激增或高风险评价</div>`;
+}
+function renderTrend(tr) {
+  const x = tr.map(r => r.d.slice(5));
+  chart('trend-count').setOption({ ...base(), xAxis: axisX({ data: x }), yAxis: axisY(),
+    series: [bar('大众点评', tr.map(r => r.dianping), css('--s1'), { stack: 'p' }), bar('美团', tr.map(r => r.meituan), css('--s2'), { stack: 'p' }),
+             bar('其他渠道', tr.map(r => r.reviews - r.dianping - r.meituan), css('--s4'), { stack: 'p' })] }, true);
+  chart('trend-neg').setOption({ ...base(), legend: { show: false }, xAxis: axisX({ data: x }), yAxis: axisY({ axisLabel: { formatter: v => v + '%', color: css('--muted') } }),
+    series: [line('差评率', tr.map(r => r.reviews ? +(r.negatives / r.reviews * 100).toFixed(1) : null), css('--neg'), { areaStyle: { opacity: .08 } })] }, true);
+}
+function renderStores(st) {
+  const rows = [...st].sort((a, b) => (b.neg_rate ?? 0) - (a.neg_rate ?? 0));
+  chart('store-chart').setOption({ ...base(), grid: { left: 8, right: 48, top: 24, bottom: 8, containLabel: true }, legend: { show: false },
+    tooltip: { ...base().tooltip, formatter: ps => { const r = rows[ps[0].dataIndex]; return `${r.name}<br>差评率 ${fmtPct(r.neg_rate)}（上期 ${fmtPct(r.prev_neg_rate)}）<br>评价 ${r.reviews} 条 · 平均 ${r.avg_star?.toFixed(2)}★<br>负面最多：${r.top_negative_aspect || '–'}`; } },
+    xAxis: axisY({ axisLabel: { formatter: v => v + '%', color: css('--muted') } }), yAxis: axisX({ data: rows.map(r => r.name), inverse: true, axisLabel: { color: css('--ink-2'), width: 150, overflow: 'truncate' } }),
+    series: [{ type: 'bar', data: rows.map(r => +((r.neg_rate || 0) * 100).toFixed(1)), itemStyle: { color: css('--s1'), borderRadius: [0, 3, 3, 0] }, barMaxWidth: 18,
+               label: { show: true, position: 'right', color: css('--muted'), formatter: p => `${p.value}%  (${rows[p.dataIndex].reviews})` } }] }, true);
+  document.getElementById('store-table').innerHTML = `<table><tr><th>门店</th><th class="num">评价</th><th class="num">上期</th><th class="num">差评率</th><th class="num">上期</th><th>负面最多</th></tr>` +
+    st.map(r => `<tr><td>${r.name}</td><td class="num">${r.reviews}</td><td class="num">${r.prev_reviews}</td><td class="num">${fmtPct(r.neg_rate)}</td><td class="num">${fmtPct(r.prev_neg_rate)}</td><td>${r.top_negative_aspect || '–'}</td></tr>`).join('') + '</table>';
+}
+function renderAspects(asp) {
+  const cats = asp.by_category;
+  if (!cats.length) { ['cat-chart', 'aspect-chart', 'heat-chart'].forEach(id => chart(id).setOption(placeholder('待 AI 解析后显示'), true)); return; }
+  chart('cat-chart').setOption({ ...base(), xAxis: axisX({ data: cats.map(c => c.category) }), yAxis: axisY(),
+    series: [bar('正面', cats.map(c => c.positive), css('--pos')), bar('负面', cats.map(c => c.negative), css('--neg'))] }, true);
+  const top = asp.by_aspect.filter(a => a.negative > 0).slice(0, 15);
+  const sel = document.getElementById('r-aspect'); sel.innerHTML = '<option value="">全部细项（负面）</option>' + asp.by_aspect.map(a => `<option>${a.aspect}</option>`).join('');
+  chart('aspect-chart').setOption({ ...base(), grid: { left: 8, right: 24, top: 28, bottom: 8, containLabel: true },
+    xAxis: axisY(), yAxis: axisX({ data: top.map(a => `${a.category}·${a.aspect}`), inverse: true, axisLabel: { color: css('--ink-2') } }),
+    series: [{ ...bar('本期负面', top.map(a => a.negative), css('--neg')), itemStyle: { color: css('--neg'), borderRadius: [0, 3, 3, 0] }, barMaxWidth: 14 },
+             { ...bar('上期负面', top.map(a => a.prev_negative), css('--neu')), itemStyle: { color: css('--neu'), borderRadius: [0, 3, 3, 0] }, barMaxWidth: 14 }] }, true);
+  const storesN = [...new Set(asp.store_heatmap.map(h => h.store))];
+  const aspectsN = [...new Set(top.map(a => a.aspect))];
+  const data = asp.store_heatmap.filter(h => aspectsN.includes(h.aspect)).map(h => [aspectsN.indexOf(h.aspect), storesN.indexOf(h.store), h.negative]);
+  const max = Math.max(1, ...data.map(d => d[2]));
+  chart('heat-chart').setOption({ ...base(), tooltip: { ...base().tooltip, trigger: 'item', formatter: p => `${storesN[p.value[1]]}<br>${aspectsN[p.value[0]]}：负面 ${p.value[2]} 次` },
+    grid: { left: 8, right: 16, top: 8, bottom: 40, containLabel: true },
+    xAxis: axisX({ data: aspectsN, axisLabel: { color: css('--ink-2'), interval: 0, rotate: 30 } }), yAxis: axisX({ data: storesN, axisLabel: { color: css('--ink-2') } }),
+    visualMap: { min: 0, max, orient: 'horizontal', left: 'center', bottom: 0, inRange: { color: [css('--seq-1'), css('--seq-7')] }, textStyle: { color: css('--muted') } },
+    series: [{ type: 'heatmap', data, label: { show: true, color: css('--ink') }, itemStyle: { borderColor: css('--surface'), borderWidth: 2 } }] }, true);
+}
+function renderDishes(d) {
+  const top = d.top.slice(0, 20);
+  if (!top.length) { chart('dish-chart').setOption(placeholder('待 AI 解析后显示'), true); }
+  else
+  chart('dish-chart').setOption({ ...base(), grid: { left: 8, right: 24, top: 28, bottom: 8, containLabel: true },
+    xAxis: axisY(), yAxis: axisX({ data: top.map(x => x.dish), inverse: true, axisLabel: { color: css('--ink-2'), width: 140, overflow: 'truncate' } }),
+    series: [{ ...bar('正面', top.map(x => x.positive), css('--pos'), { stack: 'd' }), itemStyle: { color: css('--pos') }, barMaxWidth: 14 },
+             { ...bar('负面', top.map(x => x.negative), css('--neg'), { stack: 'd' }), itemStyle: { color: css('--neg'), borderRadius: [0, 3, 3, 0] }, barMaxWidth: 14 }] }, true);
+  document.getElementById('dish-table').innerHTML = d.worst.length ? `<table><tr><th>菜品</th><th class="num">提及</th><th class="num">负面</th><th class="num">负面占比</th><th class="num">门店数</th></tr>` +
+    d.worst.map(x => `<tr><td>${x.dish}</td><td class="num">${x.mentions}</td><td class="num">${x.negative}</td><td class="num">${fmtPct(x.neg_rate)}</td><td class="num">${x.stores}</td></tr>`).join('') + '</table>' : '<div class="empty">暂无数据</div>';
+  document.getElementById('dish-complaints').innerHTML = d.complaints.length ? '<div class="chips">' + d.complaints.map(c => `<span class="neg">${c.dish} · ${c.aspect} ×${c.n}</span>`).join('') + '</div>' : '<div class="empty">暂无数据</div>';
+}
+function renderSegments(seg) {
+  const wrap = document.getElementById('segments'); wrap.innerHTML = '';
+  const order = ['daypart', 'scenario', 'weekday', 'hour', 'customer', 'repeat', 'entry', 'revisit'];
+  order.forEach(k => {
+    const rows = seg[k]; if (!rows || !rows.length) return;
+    const id = `seg-${k}`;
+    wrap.insertAdjacentHTML('beforeend', `<div class="card c4"><h3>按${rows[0].segment}：差评率</h3><div class="chart" id="${id}" style="height:220px"></div></div>`);
+    if (rows.every(r => ['未分析', 'unknown'].includes(String(r.k)))) { chart(id).setOption(placeholder('待 AI 解析后显示'), true); return; }
+    const sorted = k === 'hour' || k === 'weekday' ? rows.sort((a, b) => ['周一','周二','周三','周四','周五','周六','周日'].indexOf(a.k) - ['周一','周二','周三','周四','周五','周六','周日'].indexOf(b.k) || a.k - b.k) : rows.slice(0, 8);
+    chart(id).setOption({ ...base(), legend: { show: false }, grid: { left: 8, right: 8, top: 8, bottom: 8, containLabel: true },
+      tooltip: { ...base().tooltip, formatter: ps => { const r = sorted[ps[0].dataIndex]; return `${r.k}<br>差评率 ${fmtPct(r.neg_rate)}<br>评价 ${r.reviews} 条 · 差评 ${r.negatives} · 平均 ${r.avg_star?.toFixed(2) ?? '–'}★`; } },
+      grid: { left: 8, right: 8, top: 8, bottom: k === 'entry' ? 24 : 8, containLabel: true },
+      xAxis: axisX({ data: sorted.map(r => String(r.k)), axisLabel: { color: css('--muted'), interval: 0, overflow: 'truncate', width: k === 'entry' ? 90 : 60, rotate: k === 'entry' ? 25 : 0 } }), yAxis: axisY({ axisLabel: { formatter: v => v + '%', color: css('--muted') } }),
+      series: [{ ...bar('差评率', sorted.map(r => +((r.neg_rate || 0) * 100).toFixed(1)), css('--s1')), barMaxWidth: 22 }] }, true);
+  });
+}
+function renderBusiness(biz) {
+  const x = biz.map(b => b.date.slice(5));
+  const idx = key => { const first = biz.find(b => b[key]); const b0 = first ? first[key] : null; return biz.map(b => b0 && b[key] != null ? +(b[key] / b0 * 100).toFixed(1) : null); };
+  const hasBiz = biz.some(b => b.exposure != null);
+  chart('biz-index').setOption(hasBiz ? { ...base(), xAxis: axisX({ data: x }), yAxis: axisY(),
+    series: [line('曝光人数', idx('exposure'), css('--s1')), line('购买人数', idx('buyers'), css('--s3')), line('评价量', idx('reviews'), css('--s2'))] }
+    : { title: { text: '尚未导入经营数据', left: 'center', top: 'middle', textStyle: { color: css('--muted'), fontSize: 13, fontWeight: 400 } } }, true);
+  chart('biz-rev').setOption(hasBiz ? { ...base(), xAxis: axisX({ data: x }), yAxis: axisY(),
+    series: [bar('差评数', biz.map(b => b.negatives), css('--neg')), line('实付金额（千元）', biz.map(b => b.revenue != null ? +(b.revenue / 1000).toFixed(1) : null), css('--s1'))] }
+    : { title: { text: '尚未导入经营数据', left: 'center', top: 'middle', textStyle: { color: css('--muted'), fontSize: 13, fontWeight: 400 } } }, true);
+}
+async function loadReviews() {
+  const r = await api('reviews', { sentiment: document.getElementById('r-sent').value, aspect: document.getElementById('r-aspect').value,
+    dish: document.getElementById('r-dish').value, risk: document.getElementById('r-risk').value, q: document.getElementById('r-q').value, page: state.page, size: 30 });
+  const el = document.getElementById('reviews');
+  el.innerHTML = r.items.length ? r.items.map(it => `<div class="review">
+      <div class="meta">${it.store || '–'} · ${it.platform || ''} · ${it.review_time || ''} · ${it.star ?? '–'}★ · ${it.nickname || '匿名'}${it.high_v ? ' · ' + it.high_v : ''}${it.package_name ? ' · ' + it.package_name : ''}${it.risk === 'high' ? ' · <span class="risk">高风险</span>' : ''}</div>
+      <div class="text">${(it.content || '').replace(/</g, '&lt;')}</div>
+      ${it.summary ? `<div class="sum">AI：${it.sentiment === 'negative' ? '消极' : it.sentiment === 'positive' ? '积极' : '中性'} · ${it.summary}${it.scenario && it.scenario !== '未提及' ? ' · ' + it.scenario : ''}${it.daypart && it.daypart !== '未提及' ? ' · ' + it.daypart : ''}</div>` : ''}
+      ${it.aspects && it.aspects.length ? `<div class="chips">${it.aspects.map(a => `<span class="${a.sentiment === 'negative' ? 'neg' : a.sentiment === 'positive' ? 'pos' : ''}">${a.aspect}${a.dish ? '·' + a.dish : ''}</span>`).join('')}</div>` : ''}
+      ${it.reply_suggestion ? `<div class="reply">建议回复：${it.reply_suggestion}</div>` : ''}
+    </div>`).join('') : '<div class="empty">没有符合条件的评价</div>';
+  document.getElementById('r-page').textContent = `第 ${r.page} 页 · 共 ${fmtNum(r.total)} 条`;
+}
+init();
+</script>
+</body>
+</html>
