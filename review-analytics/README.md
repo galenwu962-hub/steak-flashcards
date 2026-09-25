@@ -66,14 +66,16 @@ python -m app.importers 顾客评价.xlsx
 
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...
-python -m app.analyze estimate                  # 待分析条数、大致费用
-python -m app.analyze run --limit 20            # 同步跑 20 条，立刻能在看板里看到
-python -m app.analyze batch                     # 全部待分析的评价提交 Batch（半价，通常 1 小时内完成）
+python -m app.analyze estimate --since 2026-06-28 --model claude-sonnet-5   # 待分析条数、大致费用
+python -m app.analyze run --limit 20 --since 2026-06-28 --model claude-sonnet-5   # 同步跑 20 条，立刻能在看板里看到
+python -m app.analyze batch --since 2026-06-28 --model claude-sonnet-5      # 提交 Batch（半价，通常 1 小时内完成）
 python -m app.analyze collect                   # 批次完成后收取结果
 python -m app.analyze status
 ```
 
-默认模型 `claude-opus-5`；`--model claude-sonnet-5` 更便宜。解析结果的结构见 `app/analyze.py` 里的 `ReviewAnalysis`。
+默认跳过 40 字以内的 5 星短评（"好吃""不错"这类，约占两成，几乎没有信息量），加 `--all` 可以包含。`--since` 限定起始日期，不加就是全部。默认模型 `claude-opus-5`，`--model claude-sonnet-5` 便宜一半以上。解析结果的结构见 `app/analyze.py` 里的 `ReviewAnalysis`。
+
+`data/` 目录不入库（里面是顾客评价原文），换机器要重新走第一步导入。
 
 ## 第三步：看板
 

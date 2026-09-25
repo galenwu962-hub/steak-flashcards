@@ -145,16 +145,28 @@ def build_params(review: sqlite3.Row, model: str) -> MessageCreateParamsNonStrea
     )
 
 
-def pending_reviews(conn: sqlite3.Connection, limit: int | None = None) -> list[sqlite3.Row]:
+def pending_reviews(conn: sqlite3.Connection, limit: int | None = None, since: str | None = None,
+                    skip_short_positive: bool = True) -> list[sqlite3.Row]:
+    """Reviews without an analysis yet.
+
+    ``since`` limits to reviews on/after that date. ``skip_short_positive`` drops 5-star reviews
+    under 40 characters ("好吃""不错"), which carry almost no information and are ~a fifth of the data.
+    """
     sql = """
         SELECT r.* FROM reviews r
         LEFT JOIN review_analysis a ON a.review_id = r.id
         WHERE a.review_id IS NULL AND r.content IS NOT NULL AND length(trim(r.content)) >= 2
-        ORDER BY r.review_time DESC
     """
+    params: list = []
+    if since:
+        sql += " AND r.review_date >= ?"
+        params.append(since)
+    if skip_short_positive:
+        sql += " AND (r.star IS NULL OR r.star <= 4 OR length(r.content) >= 40)"
+    sql += " ORDER BY r.review_time DESC"
     if limit:
         sql += f" LIMIT {int(limit)}"
-    return conn.execute(sql).fetchall()
+    return conn.execute(sql, params).fetchall()
 
 
 def store_result(conn: sqlite3.Connection, review_id: str, model: str, text: str) -> None:
@@ -196,8 +208,8 @@ PRICES = {  # USD per 1M tokens: (input, output)
 }
 
 
-def cmd_estimate(conn, client, model, limit):
-    rows = pending_reviews(conn, limit)
+def cmd_estimate(conn, client, model, limit, since, skip_short):
+    rows = pending_reviews(conn, limit, since, skip_short)
     if not rows:
         print("没有待分析的评价")
         return
@@ -217,8 +229,8 @@ def cmd_estimate(conn, client, model, limit):
     print(f"模型 {model}：同步调用约 ${cost_sync:.2f}，Batch 模式约 ${cost_sync / 2:.2f}（≈ ¥{cost_sync / 2 * 7.2:.0f}）")
 
 
-def cmd_run(conn, client, model, limit):
-    rows = pending_reviews(conn, limit or 20)
+def cmd_run(conn, client, model, limit, since, skip_short):
+    rows = pending_reviews(conn, limit or 20, since, skip_short)
     ok = 0
     for r in rows:
         p = build_params(r, model)
@@ -240,8 +252,8 @@ def cmd_run(conn, client, model, limit):
     print(f"done {ok}/{len(rows)}")
 
 
-def cmd_batch(conn, client, model, limit):
-    rows = pending_reviews(conn, limit)
+def cmd_batch(conn, client, model, limit, since, skip_short):
+    rows = pending_reviews(conn, limit, since, skip_short)
     if not rows:
         print("没有待分析的评价")
         return
@@ -258,7 +270,7 @@ def cmd_batch(conn, client, model, limit):
         print(f"submitted {batch.id}: {len(chunk)} requests ({batch.processing_status})")
 
 
-def cmd_collect(conn, client, model, limit):
+def cmd_collect(conn, client, model, limit, since, skip_short):
     jobs = conn.execute("SELECT * FROM analysis_jobs WHERE status != 'collected'").fetchall()
     if not jobs:
         print("没有待收取的批次")
@@ -289,7 +301,7 @@ def cmd_collect(conn, client, model, limit):
         print(f"  stored {ok}, failed {err}")
 
 
-def cmd_status(conn, client, model, limit):
+def cmd_status(conn, client, model, limit, since, skip_short):
     total = conn.execute("SELECT count(*) FROM reviews WHERE content IS NOT NULL").fetchone()[0]
     done = conn.execute("SELECT count(*) FROM review_analysis").fetchone()[0]
     print(f"评价 {total} 条，已分析 {done} 条，待分析 {total - done} 条")
@@ -302,12 +314,14 @@ def main(argv=None):
     ap.add_argument("command", choices=["estimate", "run", "batch", "collect", "status"])
     ap.add_argument("--limit", type=int)
     ap.add_argument("--model", default=DEFAULT_MODEL)
+    ap.add_argument("--since", help="only reviews on/after this date, e.g. 2026-06-28")
+    ap.add_argument("--all", action="store_true", help="include short 5-star reviews (skipped by default)")
     args = ap.parse_args(argv)
     conn = connect()
     client = anthropic.Anthropic()
     {"estimate": cmd_estimate, "run": cmd_run, "batch": cmd_batch, "collect": cmd_collect, "status": cmd_status}[
         args.command
-    ](conn, client, args.model, args.limit)
+    ](conn, client, args.model, args.limit, args.since, not args.all)
 
 
 if __name__ == "__main__":
