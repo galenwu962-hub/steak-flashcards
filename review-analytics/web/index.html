@@ -294,7 +294,10 @@ function renderDishes(d) {
   document.getElementById('dish-complaints').innerHTML = d.complaints.length ? '<div class="chips">' + d.complaints.map(c => `<span class="neg">${c.dish} · ${c.aspect} ×${c.n}</span>`).join('') + '</div>' : '<div class="empty">暂无数据</div>';
 }
 function renderSegments(seg) {
-  const wrap = document.getElementById('segments'); wrap.innerHTML = '';
+  const wrap = document.getElementById('segments');
+  // the cards are rebuilt on every load, so drop chart instances bound to the old DOM nodes
+  Object.keys(charts).filter(id => id.startsWith('seg-')).forEach(id => { charts[id].dispose(); delete charts[id]; });
+  wrap.innerHTML = '';
   const order = ['daypart', 'scenario', 'weekday', 'hour', 'customer', 'repeat', 'entry', 'revisit'];
   order.forEach(k => {
     const rows = seg[k]; if (!rows || !rows.length) return;
