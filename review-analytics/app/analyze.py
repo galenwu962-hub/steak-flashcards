@@ -17,13 +17,14 @@ Commands (run from the review-analytics directory):
     python -m app.analyze collect             # fetch finished batches and store the results
     python -m app.analyze status
 
-Set ANTHROPIC_API_KEY in the environment. Model defaults to claude-opus-5;
-override with --model (e.g. claude-sonnet-5 for a cheaper pass).
+Set REVIEW_ANALYTICS_API_KEY (or ANTHROPIC_API_KEY) in the environment. Model defaults to
+claude-opus-5; override with --model (e.g. claude-sonnet-5 for a cheaper pass).
 """
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import sqlite3
 import sys
 from typing import Literal
@@ -38,6 +39,19 @@ from .normalize import resolve_dish
 
 DEFAULT_MODEL = "claude-opus-5"
 BATCH_CHUNK = 10_000  # requests per batch
+
+
+def make_client() -> anthropic.Anthropic:
+    """Build the API client.
+
+    Claude Code cloud environments reserve the name ANTHROPIC_API_KEY (and point
+    ANTHROPIC_BASE_URL at their own proxy), so we accept a second variable name and
+    always talk to api.anthropic.com directly.
+    """
+    key = os.environ.get("REVIEW_ANALYTICS_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")
+    if not key:
+        sys.exit("缺少 API 密钥：请设置环境变量 REVIEW_ANALYTICS_API_KEY")
+    return anthropic.Anthropic(api_key=key, base_url=os.environ.get("REVIEW_ANALYTICS_API_URL", "https://api.anthropic.com"))
 
 # ---------------------------------------------------------------------------
 # Taxonomy — closed sets so every chart aggregates on the same labels
@@ -318,7 +332,7 @@ def main(argv=None):
     ap.add_argument("--all", action="store_true", help="include short 5-star reviews (skipped by default)")
     args = ap.parse_args(argv)
     conn = connect()
-    client = anthropic.Anthropic()
+    client = make_client()
     {"estimate": cmd_estimate, "run": cmd_run, "batch": cmd_batch, "collect": cmd_collect, "status": cmd_status}[
         args.command
     ](conn, client, args.model, args.limit, args.since, not args.all)

@@ -62,10 +62,10 @@ python -m app.importers 顾客评价.xlsx
 
 ## 第二步：AI 解析
 
-需要 `ANTHROPIC_API_KEY`。先估价，再小批量试跑，看结果满意再全量：
+需要 API 密钥，放在环境变量 `REVIEW_ANALYTICS_API_KEY`（Claude Code 云端环境不允许用 `ANTHROPIC_API_KEY` 这个名字；本机运行两个名字都可以）。先估价，再小批量试跑，看结果满意再全量：
 
 ```bash
-export ANTHROPIC_API_KEY=sk-ant-...
+export REVIEW_ANALYTICS_API_KEY=sk-ant-...
 python -m app.analyze estimate --since 2026-06-28 --model claude-sonnet-5   # 待分析条数、大致费用
 python -m app.analyze run --limit 20 --since 2026-06-28 --model claude-sonnet-5   # 同步跑 20 条，立刻能在看板里看到
 python -m app.analyze batch --since 2026-06-28 --model claude-sonnet-5      # 提交 Batch（半价，通常 1 小时内完成）
