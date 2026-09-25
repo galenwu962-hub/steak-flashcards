@@ -248,11 +248,15 @@ def cmd_run(conn, client, model, limit, since, skip_short):
     ok = 0
     for r in rows:
         p = build_params(r, model)
-        msg = client.beta.messages.create(
-            betas=["server-side-fallback-2026-06-01"],
-            fallbacks=[{"model": "claude-opus-4-8"}],
-            **p,
-        )
+        if model.startswith("claude-opus-5"):
+            # server-side fallback is only accepted for Opus 5 models
+            msg = client.beta.messages.create(
+                betas=["server-side-fallback-2026-06-01"],
+                fallbacks=[{"model": "claude-opus-4-8"}],
+                **p,
+            )
+        else:
+            msg = client.messages.create(**p)
         if msg.stop_reason == "refusal":
             print(f"[{r['id']}] refused: {msg.stop_details.explanation if msg.stop_details else ''}")
             continue
