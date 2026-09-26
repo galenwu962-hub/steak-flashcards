@@ -59,7 +59,8 @@ python -m app.analyze status        # 应显示已分析 5,367 条
 - **只有用户说"发"才能往群里发，草稿先给他看。**
 - 读群消息：`--time` 用 `yyyy-MM-dd HH:mm:ss`，加 `--page-all` 翻到底，不按关键词过滤。
 - 无人值守定时推送才用自定义机器人 webhook（token 存环境变量 `DINGTALK_*_WEBHOOK_TOKEN`），见用户原话第 6 步。
-- 改善事项清单已建成钉钉云文档（2026-09-26）：https://alidocs.dingtalk.com/i/nodes/9bN7RYPWdMdve6n7ijR336w9VZd1wyK0
+- 改善事项清单钉钉云文档（修订版，含可落地审核，2026-09-26）：https://alidocs.dingtalk.com/i/nodes/wva2dxOW4YQA3ZL4SYn7DvvnVbkz3BRL
+  （初版 9bN7RYPWdMdve6n7ijR336w9VZd1wyK0 是审核前的旧内容）
   重新生成：`python -m app.export_items` → `NODE_PATH=$(npm root -g) node scripts/report_docx.js data/reports/items.json data/reports/改善事项清单.docx`
   → `dws doc +import --file data/reports/改善事项清单.docx --folder <我的文件 rootFolderId> --name ...`
   （rootFolderId 用 `dws wiki space list --type mySpace` 查；不带 --folder 会报默认位置不唯一）。

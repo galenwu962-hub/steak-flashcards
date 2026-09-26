@@ -49,11 +49,12 @@ function table(widths, header, rows, opts = {}) {
   });
 }
 
-const items = D.items, themes = D.themes;
+const allItems = D.items, themes = D.themes;
+const items = allItems.filter(i => !i.aware), aware = allItems.filter(i => i.aware);
 const nHigh = items.filter(i => i.priority === '高').length, nEsc = items.filter(i => i.escalate).length;
-const evidenceTotal = items.reduce((a, i) => a + (i.evidence_count || 0), 0);
+const reviewTotal = new Set(allItems.flatMap(i => (i.evidence || []).map(e => e.review_id))).size;
 const quote1 = it => { const e = (it.evidence || []).find(e => e.quote); return e ? `「${e.quote}」${e.star ?? ''}★` : ''; };
-const byId = Object.fromEntries(items.map(i => [i.id, i]));
+const byId = Object.fromEntries(allItems.map(i => [i.id, i]));
 
 const children = [];
 children.push(new Paragraph({ children: [run('pLeace 顾客评价改善事项清单', { size: 36, bold: true })], spacing: { after: 60 } }));
@@ -61,10 +62,10 @@ children.push(p(`${D.from} 至 ${D.to} · 13 家门店 · 由顾客评价里的�
 
 // 1 概览
 children.push(h1('一、概览'));
-children.push(p(`两周共归纳出 ${items.length} 条改善事项，来自 ${evidenceTotal} 条顾客意见。其中高优先级 ${nHigh} 条，${nEsc} 条属于食品安全或卫生类，需区域经理知悉并立即处理。`));
+children.push(p(`两周共归纳出 ${allItems.length} 条事项，来自 ${reviewTotal} 条顾客评价。其中 ${items.length} 条需要门店整改（高优先级 ${nHigh} 条，${nEsc} 条属于食品安全或卫生类，需区域经理知悉并立即处理）；另有 ${aware.length} 条评价里没有具体的菜、时段或环节，只需留意，见第五部分。`));
 children.push(h2('按分类'));
-children.push(table([2400, 5200, 1100, 1100, 1100], ['分类', '包含什么', '事项', '意见', '门店'],
-  D.categories.map(c => ({ cells: [c.category, CAT_NOTE[c.category] || '', c.items, c.evidence, c.stores] }))));
+children.push(table([2400, 5200, 1100, 1100, 1100], ['分类', '包含什么', '事项', '评价', '门店'],
+  D.categories.map(c => ({ cells: [c.category, CAT_NOTE[c.category] || '', c.items, c.reviews, c.stores] }))));
 children.push(p(''));
 children.push(h2('按门店'));
 children.push(table([3400, 1200, 1400, 1600], ['门店', '事项数', '高优先级', '需升级'],
@@ -76,7 +77,7 @@ children.push(h1('二、跨门店普遍问题'));
 children.push(note('单店看只是"我们店的问题"，放在一起才知道是公司层面的问题。以下每个主题至少覆盖 3 家门店，按覆盖门店数排序。'));
 themes.forEach((t, i) => {
   children.push(h2(`${i + 1}. ${t.title}`));
-  children.push(p(`${t.category} · ${t.store_count} 家门店 · ${t.evidence_total} 条意见`, { size: 17, color: MUTED, after: 40 }));
+  children.push(p(`${t.category} · ${t.store_count} 家门店 · ${t.review_total} 条评价`, { size: 17, color: MUTED, after: 40 }));
   children.push(p(`涉及门店：${t.stores.map(s => s.replace(/^(wow |P3 by )?pLeace2? ?(island )?(LOFT )?/, '')).join('、')}`, { size: 17, after: 40 }));
   children.push(p(`共同点：${t.what_is_common}`, { after: 40 }));
   children.push(new Paragraph({ children: [run('公司层面建议：', { bold: true }), run(t.company_action)], spacing: { after: 60 } }));
@@ -95,10 +96,10 @@ children.push(table([2000, 3600, 4000, 3600], ['门店', '问题', '建议动作
 
 // 4 全部事项按分类
 children.push(new Paragraph({ children: [new PageBreak()] }));
-children.push(h1('四、全部事项（按分类）'));
+children.push(h1('四、需整改事项（按分类）'));
 children.push(note('优先级：高 = 安全卫生或导致顾客明确不再来；中 = 反复出现的出品或服务问题；低 = 偶发或建议类。负责人为角色：店长 / 品控 / 区域经理。'));
 for (const cat of D.order) {
-  const list = items.filter(i => i.category === cat).sort((a, b) => (b.escalate - a.escalate) || ('高中低'.indexOf(a.priority) - '高中低'.indexOf(b.priority)) || (b.evidence_count - a.evidence_count));
+  const list = items.filter(i => i.category === cat).sort((a, b) => (b.escalate - a.escalate) || ('高中低'.indexOf(a.priority) - '高中低'.indexOf(b.priority)) || (b.review_count - a.review_count));
   if (!list.length) continue;
   children.push(h2(`${cat}（${list.length} 条）`));
   children.push(table([1700, 700, 900, 3500, 3900, 2700], ['门店', '优先', '负责', '问题', '建议动作', '顾客原话'],
@@ -107,11 +108,22 @@ for (const cat of D.order) {
   children.push(p(''));
 }
 
-// 5 说明
-children.push(h1('五、口径说明'));
+// 5 仅知晓
+if (aware.length) {
+  children.push(h1('五、仅知晓（留意即可）'));
+  children.push(note('这些意见只有笼统感受，评价里找不到具体的菜、时段或环节，门店无从下手，所以不派任务、不设截止日期。店长知晓并留意；同类意见再出现且带出具体信息时，会变成整改事项。'));
+  children.push(table([2000, 3400, 4200, 3600], ['门店', '顾客在说什么', '为什么只是知晓', '顾客原话'],
+    aware.map(it => ({ cells: [it.store.replace(/^(wow |P3 by )?pLeace2? ?/, ''), it.title, it.kind_reason || '', quote1(it)] }))));
+  children.push(p(''));
+}
+
+// 6 说明
+children.push(h1('六、口径说明'));
 [
   '数据来源：大众点评与美团上 13 家门店的顾客评价，经 AI 逐条拆解出每一个被提到的点及其正负面。',
   '改善事项：把一家门店一段时间内的所有负面意见（包括好评里夹带的抱怨）合并同类后归纳而成，每条附顾客原话作为证据。',
+  '可落地审核：每条事项都回到评价原文核对，笼统的按原文里的具体菜品、时段、环节改写；原文也没有具体信息的列为仅知晓。',
+  '评价数：事项背后有几条顾客评价，一条评价里说了几句也只算一次。',
   '跨门店主题：把 13 家门店的事项放在一起，找出至少 3 家门店共同出现的问题。',
   '分类为固定 9 类，一条事项只归一类，按其最主要的问题决定。',
   '本文档由系统自动生成，建议每周更新一次；处理状态可在看板上勾选。',

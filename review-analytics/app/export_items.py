@@ -32,19 +32,26 @@ def export(conn, date_from, date_to):
         d = dict(r)
         d['stores'] = json.loads(d.pop('stores_json') or '[]')
         d['item_ids'] = json.loads(d.pop('item_ids_json') or '[]')
+        d['review_total'] = len({e['review_id'] for i in items if i['id'] in d['item_ids'] for e in i['evidence']})
         themes.append(d)
 
+    for i in items:
+        i['review_count'] = i.get('review_count') or len({e['review_id'] for e in i['evidence']})
+        i['aware'] = i.get('kind') == '知晓'
     categories = []
     for cat in ORDER:
-        sub = [i for i in items if i['category'] == cat]
+        sub = [i for i in items if i['category'] == cat and not i['aware']]
         if sub:
             categories.append({'category': cat, 'items': len(sub),
-                               'evidence': sum(i['evidence_count'] or 0 for i in sub),
+                               'reviews': len({e['review_id'] for i in sub for e in i['evidence']}),
                                'stores': len({i['store'] for i in sub})})
 
     stores = {}
     for i in items:
-        s = stores.setdefault(i['store'], {'name': i['store'], 'n': 0, 'high': 0, 'esc': 0})
+        s = stores.setdefault(i['store'], {'name': i['store'], 'n': 0, 'high': 0, 'esc': 0, 'aware': 0})
+        if i['aware']:
+            s['aware'] += 1
+            continue
         s['n'] += 1
         s['high'] += i['priority'] == '高'
         s['esc'] += i['escalate']
