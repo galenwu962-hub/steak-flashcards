@@ -105,6 +105,17 @@ CREATE TABLE IF NOT EXISTS daily_metrics (
     PRIMARY KEY (store_id, date)
 );
 
+CREATE TABLE IF NOT EXISTS review_replies (
+    review_id     TEXT PRIMARY KEY REFERENCES reviews(id),
+    model         TEXT,
+    created_at    TEXT DEFAULT (datetime('now')),
+    reply         TEXT,                  -- 建议回复（店长口吻，含知识库口径）
+    internal_note TEXT,                  -- 给门店/品控的内部跟进建议
+    owner         TEXT,                  -- 店长 | 品控 | 区域经理 | 无需跟进
+    escalate      INTEGER,               -- 1 = 必须人工处理
+    raw_json      TEXT
+);
+
 CREATE TABLE IF NOT EXISTS analysis_jobs (
     batch_id    TEXT PRIMARY KEY,
     model       TEXT,
