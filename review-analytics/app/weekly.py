@@ -75,7 +75,8 @@ def build(conn, date_to: str | None = None) -> dict:
     new_themes = [t for t in themes if t["new"]]
 
     earlier = _items(conn, "i.period_to < ?", [f.date_from])
-    progress_items = earlier or cur_items
+    # awareness-only items (kind 知晓) carry no task, so they are left out of the progress count
+    progress_items = [i for i in (earlier or cur_items) if i.get("kind") != "知晓"]
     progress = {}
     for it in progress_items:
         p = progress.setdefault(it["store"], {"store": it["store"], "total": 0, "done": 0, "high_open": 0})
@@ -141,7 +142,7 @@ def render(D: dict) -> str:
         return f"「{escape(e['quote'])}」" if e else ""
 
     red = "".join(f"""
-        <li><div class="li-head"><span class="who">{escape(short(i['store']))}</span><span class="tag">{len(i['week_evidence'])} 条本周意见</span></div>
+        <li><div class="li-head"><span class="who">{escape(short(i['store']))}</span><span class="tag">本周 {len({e['review_id'] for e in i['week_evidence']})} 条评价</span></div>
           <p class="what">{escape(i['title'])}</p><p class="q">{quote(i)}</p></li>""" for i in D["red_week"]) \
         or '<li class="none">本周没有新的食安、卫生类投诉。</li>'
     carry = ""

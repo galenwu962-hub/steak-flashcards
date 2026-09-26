@@ -172,4 +172,18 @@ def connect(path: Path | str | None = None) -> sqlite3.Connection:
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys=ON")
     conn.executescript(SCHEMA)
+    _add_columns(conn, "action_items", {
+        "review_count": "INTEGER",   # distinct reviews behind the item (evidence_count counts quotes)
+        "kind": "TEXT",              # 整改 = store can act on it; 知晓 = too vague to act on, awareness only
+        "kind_reason": "TEXT",
+        "title_orig": "TEXT",        # wording before the actionability review rewrote it
+        "action_orig": "TEXT",
+    })
     return conn
+
+
+def _add_columns(conn: sqlite3.Connection, table: str, cols: dict[str, str]) -> None:
+    have = {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}
+    for name, typ in cols.items():
+        if name not in have:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {typ}")

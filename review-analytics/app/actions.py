@@ -10,7 +10,9 @@ escalation.
     python -m app.actions show [--store 5]
     python -m app.actions done <item_id>
 
-Items are stored in action_items and shown on the dashboard under 改善事项.
+Items are stored in action_items and shown on the dashboard under 改善事项. Run
+`python -m app.actionability run` afterwards: it rewrites vague items around the specifics in
+the reviews, or marks them 仅知晓 when there are none.
 """
 from __future__ import annotations
 
@@ -108,10 +110,10 @@ def run_store(conn, client, model: str, store_id: int, store: str, d0: str, d1: 
             ev = [points[i - 1] for i in dict.fromkeys(it.evidence) if 1 <= i <= len(points)]
             conn.execute(
                 """INSERT INTO action_items (store_id, period_from, period_to, model, title, aspect, owner, priority,
-                   escalate, action, evidence_count, evidence_json, status)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'open')""",
+                   escalate, action, evidence_count, review_count, evidence_json, status)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,'open')""",
                 (store_id, d0, d1, model, it.title, it.aspect, it.owner, it.priority, int(it.escalate), it.action,
-                 len(ev), json.dumps([{k: e[k] for k in ("review_id", "quote", "dish", "star", "review_date")} for e in ev], ensure_ascii=False)))
+                 len(ev), len({e["review_id"] for e in ev}), json.dumps([{k: e[k] for k in ("review_id", "quote", "dish", "star", "review_date")} for e in ev], ensure_ascii=False)))
     return len(plan.items)
 
 
