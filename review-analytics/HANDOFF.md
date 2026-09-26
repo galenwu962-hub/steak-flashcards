@@ -76,3 +76,13 @@ python -m app.analyze status        # 应显示已分析 5,367 条
 - 不要把 data/、scripts/data/、state.json 提交到 git。
 - 看板在线版 Artifact：https://claude.ai/artifact/LFWBvRSia8h4b7H3DZt7cW（用 `python -m app.export_static` 生成后，
   以 `data/static/index.html` 为页面、`echarts.min.js` 和 `data.js` 为 files 重新发布，files 用绝对路径）。
+
+## 6. 改善事项跟进表（钉钉 AI 表格，2026-09-26 建）
+
+- 表格「门店改善事项跟进」：https://alidocs.dingtalk.com/i/nodes/Amq4vjg890Dmk3B3sxYMD45nJ3kdP0wQ ，94 条事项已导入，
+  字段「事项编号」= action_items.id。下发日期统一 9-28；截止日期 = 红线 +1 天、高 +3、中 +7、低 +14。负责人字段暂空，等杨丽娜给店长名单后填。
+- 视图：全部事项（按门店）/ 处理看板（按状态）/ 逾期事项 / 红线事项；仪表盘「改善事项进度」6 个图表。
+- 自动化（已启用）：到期当天提醒、逾期一天提醒（有负责人发负责人+管理员，没有只发管理员）、每周一逾期汇总（只发管理员）。
+  管理员 = 流程创建人（吴之洋）。以后交营运管理时要把流程创建人/接收人换成营运。
+- 周报进度：先 `python -m app.sync_dingtalk` 把表格状态拉回数据库，再 `python -m app.weekly`。
+- 下一期事项要追加到同一张表（record create，字段 ID 见 app/sync_dingtalk.py 和 scratch 里的写法），不要新建表。
