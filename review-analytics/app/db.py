@@ -132,9 +132,26 @@ CREATE TABLE IF NOT EXISTS action_items (
     evidence_count INTEGER,
     evidence_json  TEXT,                   -- [{review_id, quote, dish, star, review_date}]
     status         TEXT DEFAULT 'open',    -- open | done
-    done_at        TEXT
+    done_at        TEXT,
+    category       TEXT                    -- 固定分类，见 app/themes.py
 );
 CREATE INDEX IF NOT EXISTS ix_actions_store ON action_items(store_id, period_to);
+
+CREATE TABLE IF NOT EXISTS themes (
+    id              INTEGER PRIMARY KEY,
+    period_from     TEXT NOT NULL,
+    period_to       TEXT NOT NULL,
+    created_at      TEXT DEFAULT (datetime('now')),
+    model           TEXT,
+    title           TEXT NOT NULL,          -- 跨门店共同问题
+    category        TEXT,
+    store_count     INTEGER,
+    evidence_total  INTEGER,
+    stores_json     TEXT,
+    item_ids_json   TEXT,
+    what_is_common  TEXT,
+    company_action  TEXT
+);
 
 CREATE TABLE IF NOT EXISTS analysis_jobs (
     batch_id    TEXT PRIMARY KEY,
