@@ -41,7 +41,8 @@ python -m app.analyze status        # 应显示已分析 5,367 条
 ## 4. 钉钉接入（用户给的规矩，照做）
 
 - 用钉钉官方 CLI `dws`（已通过环境 Setup script 安装，`dws version` ≥ v1.0.61）。以用户本人身份 OAuth 登录，不用应用凭证。
-- 登录必须用设备流：`dws auth login --device --profile ding4568e64363f30dc0a1320dcb25e91351:17090151289664834`
+- 登录必须用设备流：`dws auth login --device --no-browser --profile ding4568e64363f30dc0a1320dcb25e91351`
+  （新容器里没有已存 profile，带 `:userId` 的写法会报 profile not found，只写 corpId）
   把输出的短链接和授权码原样发给用户扫；`dws auth status` 看到 `"authenticated": true` 才算成功；先跑只读测试
   `dws contact user search --query "板栗" --format json`。
 - token 约 2 小时过期，自动刷新是坏的，过期就重新走设备流。token 不写环境变量、不贴聊天、不用 `dws auth export`。
@@ -51,8 +52,10 @@ python -m app.analyze status        # 应显示已分析 5,367 条
 - **只有用户说"发"才能往群里发，草稿先给他看。**
 - 读群消息：`--time` 用 `yyyy-MM-dd HH:mm:ss`，加 `--page-all` 翻到底，不按关键词过滤。
 - 无人值守定时推送才用自定义机器人 webhook（token 存环境变量 `DINGTALK_*_WEBHOOK_TOKEN`），见用户原话第 6 步。
-- 待办：用 dws 把改善事项清单建成钉钉云文档发给用户（Word 版由 `node scripts/report_docx.js data/reports/items.json <out.docx>` 生成，
-  items.json 的导出代码见本次会话，需先从数据库导出，可参考 scripts/report_docx.js 顶部注释重写一段导出）。
+- 改善事项清单已建成钉钉云文档（2026-09-26）：https://alidocs.dingtalk.com/i/nodes/9bN7RYPWdMdve6n7ijR336w9VZd1wyK0
+  重新生成：`python -m app.export_items` → `NODE_PATH=$(npm root -g) node scripts/report_docx.js data/reports/items.json data/reports/改善事项清单.docx`
+  → `dws doc +import --file data/reports/改善事项清单.docx --folder <我的文件 rootFolderId> --name ...`
+  （rootFolderId 用 `dws wiki space list --type mySpace` 查；不带 --folder 会报默认位置不唯一）。
 
 ## 5. 环境要点（上一个会话踩过的坑）
 
