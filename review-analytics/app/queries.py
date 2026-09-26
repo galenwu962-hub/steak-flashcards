@@ -1,7 +1,10 @@
 """Aggregation queries behind the dashboard API.
 
-One definition of 差评 everywhere: a review is negative when its star is 3 or
-below, or when the Claude analysis judged the overall sentiment negative.
+One definition of 中差评 everywhere: when the review has been analysed, the Claude
+verdict decides (negative or neutral = 中差评, positive = 好评, whatever the stars say);
+a review without analysis (short 5-star praise, or not yet analysed) falls back to star ≤ 3.
+
+Store grades on the 中差评率: < 8% 优秀, 8-12% 正常, > 12% 问题门店.
 """
 from __future__ import annotations
 
@@ -9,7 +12,15 @@ import sqlite3
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 
-NEG_EXPR = "CASE WHEN r.star IS NOT NULL AND r.star <= 3 THEN 1 WHEN a.sentiment = 'negative' THEN 1 ELSE 0 END"
+NEG_EXPR = ("CASE WHEN a.sentiment IS NOT NULL THEN (a.sentiment IN ('negative', 'neutral')) "
+            "WHEN r.star IS NOT NULL AND r.star <= 3 THEN 1 ELSE 0 END")
+GRADES = [(0.08, "优秀"), (0.12, "正常"), (1.01, "问题")]
+
+
+def grade(rate: float | None) -> str | None:
+    if rate is None:
+        return None
+    return next(label for limit, label in GRADES if rate < limit or limit > 1)
 BASE_JOIN = "FROM reviews r LEFT JOIN review_analysis a ON a.review_id = r.id"
 
 
@@ -51,7 +62,8 @@ def meta(conn: sqlite3.Connection) -> dict:
     platforms = [r["platform"] for r in conn.execute("SELECT DISTINCT platform FROM reviews WHERE platform IS NOT NULL")]
     return {"stores": stores, "date_min": rng["d0"], "date_max": rng["d1"], "reviews": rng["n"],
             "analyzed": analyzed, "platforms": platforms,
-            "definitions": {"差评": "星级 ≤ 3，或 AI 判定总体倾向为消极", "差评率": "差评数 ÷ 评价量"}}
+            "definitions": {"中差评": "AI 判定总体倾向为消极或中性（有文字的评价以内容为准，不看星级）；未解析的评价按星级 ≤ 3",
+                            "中差评率": "中差评数 ÷ 评价量", "门店分档": "< 8% 优秀，8% 到 12% 正常，> 12% 问题门店"}}
 
 
 def _kpi(conn, f: Filters) -> dict:
@@ -107,6 +119,7 @@ def stores(conn, f: Filters) -> list[dict]:
         s["prev_reviews"] = pv["reviews"] if pv else 0
         s["prev_neg_rate"] = (pv["negatives"] / pv["reviews"]) if pv and pv["reviews"] else None
         s["top_negative_aspect"] = top_neg.get(s["id"])
+        s["grade"] = grade(s["neg_rate"])
     return cur
 
 
@@ -262,3 +275,21 @@ def alerts(conn, f: Filters) -> dict:
                            "reviews_7d": r["reviews"]})
     high = review_list(conn, recent, risk="high", size=20)["items"]
     return {"window": {"from": recent.date_from, "to": recent.date_to}, "spikes": spikes, "high_risk": high}
+
+
+def actions(conn, f: Filters) -> list[dict]:
+    """Latest improvement items per store whose period overlaps the window; escalations first."""
+    clauses = ["i.period_to >= ?", "i.period_from <= ?"]
+    params: list = [f.date_from, f.date_to]
+    if f.store_ids:
+        clauses.append(f"i.store_id IN ({','.join('?' * len(f.store_ids))})"); params += f.store_ids
+    rows = _rows(conn, f"""
+        SELECT i.*, s.name AS store FROM action_items i JOIN stores s ON s.id = i.store_id
+        WHERE {' AND '.join(clauses)}
+          AND i.period_to = (SELECT max(period_to) FROM action_items j WHERE j.store_id = i.store_id AND j.period_to >= ? AND j.period_from <= ?)
+        ORDER BY i.escalate DESC, CASE i.priority WHEN '高' THEN 0 WHEN '中' THEN 1 ELSE 2 END, i.evidence_count DESC, s.name""",
+        params + [f.date_from, f.date_to])
+    import json as _json
+    for r in rows:
+        r["evidence"] = _json.loads(r.pop("evidence_json") or "[]")
+    return rows

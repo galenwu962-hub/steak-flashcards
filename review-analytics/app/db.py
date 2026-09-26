@@ -116,6 +116,26 @@ CREATE TABLE IF NOT EXISTS review_replies (
     raw_json      TEXT
 );
 
+CREATE TABLE IF NOT EXISTS action_items (
+    id             INTEGER PRIMARY KEY,
+    store_id       INTEGER NOT NULL REFERENCES stores(id),
+    period_from    TEXT NOT NULL,
+    period_to      TEXT NOT NULL,
+    created_at     TEXT DEFAULT (datetime('now')),
+    model          TEXT,
+    title          TEXT NOT NULL,          -- 问题，一句话
+    aspect         TEXT,
+    owner          TEXT,                   -- 店长 | 品控 | 区域经理
+    priority       TEXT,                   -- 高 | 中 | 低
+    escalate       INTEGER DEFAULT 0,      -- 1 = 食安/虫害/卫生，需区域经理知悉
+    action         TEXT,                   -- 建议动作
+    evidence_count INTEGER,
+    evidence_json  TEXT,                   -- [{review_id, quote, dish, star, review_date}]
+    status         TEXT DEFAULT 'open',    -- open | done
+    done_at        TEXT
+);
+CREATE INDEX IF NOT EXISTS ix_actions_store ON action_items(store_id, period_to);
+
 CREATE TABLE IF NOT EXISTS analysis_jobs (
     batch_id    TEXT PRIMARY KEY,
     model       TEXT,

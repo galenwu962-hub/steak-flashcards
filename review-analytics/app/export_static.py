@@ -80,6 +80,7 @@ def build_data(conn) -> dict:
                     "stores": queries.stores(conn, f), "aspects": queries.aspects(conn, f),
                     "dishes": queries.dishes(conn, f), "segments": seg,
                     "business": business, "alerts": queries.alerts(conn, f),
+                    "actions": queries.actions(conn, f),
                 }
         print(f"preset {days}d: {len(store_ids) * len(platforms)} combinations", file=sys.stderr)
 

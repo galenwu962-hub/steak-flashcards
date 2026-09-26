@@ -75,6 +75,18 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .risk { color: var(--bad); font-weight: 600; }
 .pager { display: flex; gap: 8px; align-items: center; margin-top: 8px; color: var(--muted); }
 .legend { font-size: 12px; color: var(--muted); }
+.action { padding: 10px 0; border-top: 1px solid var(--border); }
+.action:first-of-type { border-top: 0; }
+.action label { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; cursor: pointer; }
+.action.done b { text-decoration: line-through; color: var(--muted); }
+.action.esc b { color: var(--bad); }
+.action .act { margin: 4px 0 4px 26px; color: var(--ink-2); font-size: 13px; }
+.action details { margin-left: 26px; }
+.action .quote { font-size: 12px; color: var(--ink-2); padding: 2px 0; }
+.pri { font-size: 11px; padding: 1px 6px; border-radius: 3px; border: 1px solid var(--border); color: var(--muted); }
+.pri.p高 { color: var(--bad); border-color: var(--bad); }
+.pri.p中 { color: var(--warn); border-color: var(--warn); }
+.owner { font-size: 12px; color: var(--s7); }
 </style>
 </head>
 <body>
@@ -99,15 +111,18 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   <h2>预警</h2>
   <div class="card" id="alerts"></div>
 
+  <h2>改善事项 <span class="legend">由评价里的负面意见归纳，按门店、负责人和优先级；勾选表示已处理</span></h2>
+  <div id="actions"></div>
+
   <h2>趋势</h2>
   <div class="grid">
     <div class="card c8"><h3>每日评价量（按平台）</h3><div class="chart" id="trend-count"></div></div>
-    <div class="card c4"><h3>差评率</h3><div class="chart" id="trend-neg"></div></div>
+    <div class="card c4"><h3>中差评率</h3><div class="chart" id="trend-neg"></div></div>
   </div>
 
   <h2>门店</h2>
   <div class="grid">
-    <div class="card c6"><h3>各店差评率与评价量</h3><div class="chart tall" id="store-chart"></div></div>
+    <div class="card c6"><h3>各店中差评率与评价量</h3><div class="chart tall" id="store-chart"></div></div>
     <div class="card c6"><h3>门店明细（对比上一周期）</h3><div id="store-table"></div></div>
   </div>
 
@@ -125,19 +140,19 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
     <div class="card"><h3>菜品被吐槽的具体点</h3><div id="dish-complaints"></div></div>
   </div>
 
-  <h2>细分对比：谁在给差评</h2>
+  <h2>细分对比：谁在给中差评</h2>
   <div class="grid" id="segments"></div>
 
   <h2>口碑与经营</h2>
   <div class="grid">
     <div class="card c6"><h3>曝光、购买、评价量（指数，期初 = 100）</h3><div class="chart" id="biz-index"></div></div>
-    <div class="card c6"><h3>实付金额与差评数</h3><div class="chart" id="biz-rev"></div></div>
+    <div class="card c6"><h3>实付金额与中差评数</h3><div class="chart" id="biz-rev"></div></div>
   </div>
 
   <h2>评价明细</h2>
   <div class="card">
     <div class="filters" style="margin-bottom:8px">
-      <select id="r-sent"><option value="">全部倾向</option><option value="negative">差评（统一口径）</option><option value="neutral">AI 中性</option><option value="positive">AI 积极</option></select>
+      <select id="r-sent"><option value="">全部倾向</option><option value="negative">中差评（统一口径）</option><option value="neutral">AI 中性</option><option value="positive">AI 积极</option></select>
       <select id="r-aspect"><option value="">全部细项（负面）</option></select>
       <input id="r-dish" placeholder="菜品" size="12">
       <select id="r-risk"><option value="">全部风险</option><option value="high">高风险</option><option value="watch">需关注</option></select>
@@ -212,6 +227,7 @@ function readFilters() {
 async function load() {
   const [ov, tr, st, asp, dish, seg, biz, al] = await Promise.all([
     api('overview'), api('trend'), api('stores'), api('aspects'), api('dishes'), api('segments'), api('business'), api('alerts')]);
+  api('actions').then(renderActions);
   renderTiles(ov); renderAlerts(al); renderTrend(tr); renderStores(st); renderAspects(asp); renderDishes(dish); renderSegments(seg); renderBusiness(biz);
   loadReviews();
 }
@@ -226,8 +242,8 @@ function renderTiles(ov) {
   const c = ov.current, p = ov.previous;
   const items = [
     ['评价量', fmtNum(c.reviews), delta(c.reviews, p.reviews)],
-    ['差评数', fmtNum(c.negatives), delta(c.negatives, p.negatives, true)],
-    ['差评率', fmtPct(c.neg_rate), delta(c.neg_rate, p.neg_rate, true, true)],
+    ['中差评数', fmtNum(c.negatives), delta(c.negatives, p.negatives, true)],
+    ['中差评率', fmtPct(c.neg_rate), delta(c.neg_rate, p.neg_rate, true, true)],
     ['平均星级', c.avg_star ? c.avg_star.toFixed(2) : '–', delta(c.avg_star, p.avg_star)],
     ['高风险评价', fmtNum(c.high_risk), delta(c.high_risk, p.high_risk, true)],
     ['高V用户评价', fmtNum(c.high_v), delta(c.high_v, p.high_v)],
@@ -238,9 +254,31 @@ function renderTiles(ov) {
 function renderAlerts(al) {
   const el = document.getElementById('alerts');
   const parts = [];
-  al.spikes.forEach(s => parts.push(`<div class="alert">${s.store}：最近 7 天差评 ${s.negatives_7d} 条（此前 4 周平均每周 ${s.weekly_baseline} 条），评价量 ${s.reviews_7d}</div>`));
+  al.spikes.forEach(s => parts.push(`<div class="alert">${s.store}：最近 7 天中差评 ${s.negatives_7d} 条（此前 4 周平均每周 ${s.weekly_baseline} 条），评价量 ${s.reviews_7d}</div>`));
   al.high_risk.forEach(r => parts.push(`<div class="alert"><span class="risk">高风险</span> ${r.store} · ${r.review_time} · ${r.star ?? '–'}★<br>${r.summary || (r.content || '').slice(0, 80)}</div>`));
-  el.innerHTML = parts.length ? parts.join('') : `<div class="empty">窗口 ${al.window.from} 至 ${al.window.to} 内没有差评激增或高风险评价</div>`;
+  el.innerHTML = parts.length ? parts.join('') : `<div class="empty">窗口 ${al.window.from} 至 ${al.window.to} 内没有中差评激增或高风险评价</div>`;
+}
+function renderActions(items) {
+  const el = document.getElementById('actions');
+  if (!items || !items.length) { el.innerHTML = '<div class="card"><div class="empty">这个时间段还没有生成改善事项（python -m app.actions run）</div></div>'; return; }
+  const byStore = {};
+  items.forEach(it => (byStore[it.store] = byStore[it.store] || []).push(it));
+  const esc = s => String(s ?? '').replace(/</g, '&lt;');
+  el.innerHTML = '<div class="grid">' + Object.entries(byStore).map(([store, list]) => `<div class="card c6">
+      <h3>${esc(store)} <span class="legend">${list[0].period_from} 至 ${list[0].period_to} · ${list.filter(i => i.status !== 'done').length} 项待处理</span></h3>
+      ${list.map(it => `<div class="action ${it.status === 'done' ? 'done' : ''} ${it.escalate ? 'esc' : ''}">
+        <label><input type="checkbox" data-id="${it.id}" ${it.status === 'done' ? 'checked' : ''}>
+          <span class="pri p${it.priority}">${it.priority}</span><span class="owner">${esc(it.owner)}</span>
+          <b>${esc(it.title)}</b> <span class="legend">${it.evidence_count} 条${it.escalate ? ' · 需区域经理知悉' : ''}</span></label>
+        <div class="act">${esc(it.action)}</div>
+        <details><summary class="legend">顾客原话</summary>${(it.evidence || []).map(e => `<div class="quote">「${esc(e.quote || '无原话')}」<span class="legend">${e.star ?? '–'}★ ${e.review_date || ''}${e.dish ? ' · ' + esc(e.dish) : ''}</span></div>`).join('')}</details>
+      </div>`).join('')}
+    </div>`).join('') + '</div>';
+  el.querySelectorAll('input[type=checkbox]').forEach(cb => cb.onchange = async () => {
+    const status = cb.checked ? 'done' : 'open';
+    try { await fetch(`/api/actions/${cb.dataset.id}/status?status=${status}`, { method: 'POST' }); } catch (e) {}
+    cb.closest('.action').classList.toggle('done', cb.checked);
+  });
 }
 function renderTrend(tr) {
   const x = tr.map(r => r.d.slice(5));
@@ -248,17 +286,18 @@ function renderTrend(tr) {
     series: [bar('大众点评', tr.map(r => r.dianping), css('--s1'), { stack: 'p' }), bar('美团', tr.map(r => r.meituan), css('--s2'), { stack: 'p' }),
              bar('其他渠道', tr.map(r => r.reviews - r.dianping - r.meituan), css('--s4'), { stack: 'p' })] }, true);
   chart('trend-neg').setOption({ ...base(), legend: { show: false }, xAxis: axisX({ data: x }), yAxis: axisY({ axisLabel: { formatter: v => v + '%', color: css('--muted') } }),
-    series: [line('差评率', tr.map(r => r.reviews ? +(r.negatives / r.reviews * 100).toFixed(1) : null), css('--neg'), { areaStyle: { opacity: .08 } })] }, true);
+    series: [line('中差评率', tr.map(r => r.reviews ? +(r.negatives / r.reviews * 100).toFixed(1) : null), css('--neg'), { areaStyle: { opacity: .08 } })] }, true);
 }
+const gradeColor = g => g === '优秀' ? css('--good') : g === '问题' ? css('--bad') : css('--s1');
 function renderStores(st) {
   const rows = [...st].sort((a, b) => (b.neg_rate ?? 0) - (a.neg_rate ?? 0));
   chart('store-chart').setOption({ ...base(), grid: { left: 8, right: 48, top: 24, bottom: 8, containLabel: true }, legend: { show: false },
-    tooltip: { ...base().tooltip, formatter: ps => { const r = rows[ps[0].dataIndex]; return `${r.name}<br>差评率 ${fmtPct(r.neg_rate)}（上期 ${fmtPct(r.prev_neg_rate)}）<br>评价 ${r.reviews} 条 · 平均 ${r.avg_star?.toFixed(2)}★<br>负面最多：${r.top_negative_aspect || '–'}`; } },
+    tooltip: { ...base().tooltip, formatter: ps => { const r = rows[ps[0].dataIndex]; return `${r.name}<br>中差评率 ${fmtPct(r.neg_rate)}（上期 ${fmtPct(r.prev_neg_rate)}）<br>评价 ${r.reviews} 条 · 平均 ${r.avg_star?.toFixed(2)}★<br>负面最多：${r.top_negative_aspect || '–'}`; } },
     xAxis: axisY({ axisLabel: { formatter: v => v + '%', color: css('--muted') } }), yAxis: axisX({ data: rows.map(r => r.name), inverse: true, axisLabel: { color: css('--ink-2'), width: 150, overflow: 'truncate' } }),
-    series: [{ type: 'bar', data: rows.map(r => +((r.neg_rate || 0) * 100).toFixed(1)), itemStyle: { color: css('--s1'), borderRadius: [0, 3, 3, 0] }, barMaxWidth: 18,
+    series: [{ type: 'bar', data: rows.map(r => ({ value: +((r.neg_rate || 0) * 100).toFixed(1), itemStyle: { color: gradeColor(r.grade) } })), itemStyle: { borderRadius: [0, 3, 3, 0] }, barMaxWidth: 18,
                label: { show: true, position: 'right', color: css('--muted'), formatter: p => `${p.value}%  (${rows[p.dataIndex].reviews})` } }] }, true);
-  document.getElementById('store-table').innerHTML = `<table><tr><th>门店</th><th class="num">评价</th><th class="num">上期</th><th class="num">差评率</th><th class="num">上期</th><th>负面最多</th></tr>` +
-    st.map(r => `<tr><td>${r.name}</td><td class="num">${r.reviews}</td><td class="num">${r.prev_reviews}</td><td class="num">${fmtPct(r.neg_rate)}</td><td class="num">${fmtPct(r.prev_neg_rate)}</td><td>${r.top_negative_aspect || '–'}</td></tr>`).join('') + '</table>';
+  document.getElementById('store-table').innerHTML = `<table><tr><th>门店</th><th class="num">评价</th><th class="num">上期</th><th class="num">中差评率</th><th class="num">上期</th><th>分档</th><th>负面最多</th></tr>` +
+    rows.map(r => `<tr><td>${r.name}</td><td class="num">${r.reviews}</td><td class="num">${r.prev_reviews}</td><td class="num">${fmtPct(r.neg_rate)}</td><td class="num">${fmtPct(r.prev_neg_rate)}</td><td><span class="grade" style="color:${gradeColor(r.grade)}">${r.grade || '–'}</span></td><td>${r.top_negative_aspect || '–'}</td></tr>`).join('') + '</table>';
 }
 function renderAspects(asp) {
   const cats = asp.by_category;
@@ -302,14 +341,14 @@ function renderSegments(seg) {
   order.forEach(k => {
     const rows = seg[k]; if (!rows || !rows.length) return;
     const id = `seg-${k}`;
-    wrap.insertAdjacentHTML('beforeend', `<div class="card c4"><h3>按${rows[0].segment}：差评率</h3><div class="chart" id="${id}" style="height:220px"></div></div>`);
+    wrap.insertAdjacentHTML('beforeend', `<div class="card c4"><h3>按${rows[0].segment}：中差评率</h3><div class="chart" id="${id}" style="height:220px"></div></div>`);
     if (rows.every(r => ['未分析', 'unknown'].includes(String(r.k)))) { chart(id).setOption(placeholder('待 AI 解析后显示'), true); return; }
     const sorted = k === 'hour' || k === 'weekday' ? rows.sort((a, b) => ['周一','周二','周三','周四','周五','周六','周日'].indexOf(a.k) - ['周一','周二','周三','周四','周五','周六','周日'].indexOf(b.k) || a.k - b.k) : rows.slice(0, 8);
     chart(id).setOption({ ...base(), legend: { show: false }, grid: { left: 8, right: 8, top: 8, bottom: 8, containLabel: true },
-      tooltip: { ...base().tooltip, formatter: ps => { const r = sorted[ps[0].dataIndex]; return `${r.k}<br>差评率 ${fmtPct(r.neg_rate)}<br>评价 ${r.reviews} 条 · 差评 ${r.negatives} · 平均 ${r.avg_star?.toFixed(2) ?? '–'}★`; } },
+      tooltip: { ...base().tooltip, formatter: ps => { const r = sorted[ps[0].dataIndex]; return `${r.k}<br>中差评率 ${fmtPct(r.neg_rate)}<br>评价 ${r.reviews} 条 · 中差评 ${r.negatives} · 平均 ${r.avg_star?.toFixed(2) ?? '–'}★`; } },
       grid: { left: 8, right: 8, top: 8, bottom: k === 'entry' ? 24 : 8, containLabel: true },
       xAxis: axisX({ data: sorted.map(r => String(r.k)), axisLabel: { color: css('--muted'), interval: 0, overflow: 'truncate', width: k === 'entry' ? 90 : 60, rotate: k === 'entry' ? 25 : 0 } }), yAxis: axisY({ axisLabel: { formatter: v => v + '%', color: css('--muted') } }),
-      series: [{ ...bar('差评率', sorted.map(r => +((r.neg_rate || 0) * 100).toFixed(1)), css('--s1')), barMaxWidth: 22 }] }, true);
+      series: [{ ...bar('中差评率', sorted.map(r => +((r.neg_rate || 0) * 100).toFixed(1)), css('--s1')), barMaxWidth: 22 }] }, true);
   });
 }
 function renderBusiness(biz) {
@@ -320,7 +359,7 @@ function renderBusiness(biz) {
     series: [line('曝光人数', idx('exposure'), css('--s1')), line('购买人数', idx('buyers'), css('--s3')), line('评价量', idx('reviews'), css('--s2'))] }
     : { title: { text: '尚未导入经营数据', left: 'center', top: 'middle', textStyle: { color: css('--muted'), fontSize: 13, fontWeight: 400 } } }, true);
   chart('biz-rev').setOption(hasBiz ? { ...base(), xAxis: axisX({ data: x }), yAxis: axisY(),
-    series: [bar('差评数', biz.map(b => b.negatives), css('--neg')), line('实付金额（千元）', biz.map(b => b.revenue != null ? +(b.revenue / 1000).toFixed(1) : null), css('--s1'))] }
+    series: [bar('中差评数', biz.map(b => b.negatives), css('--neg')), line('实付金额（千元）', biz.map(b => b.revenue != null ? +(b.revenue / 1000).toFixed(1) : null), css('--s1'))] }
     : { title: { text: '尚未导入经营数据', left: 'center', top: 'middle', textStyle: { color: css('--muted'), fontSize: 13, fontWeight: 400 } } }, true);
 }
 async function loadReviews() {

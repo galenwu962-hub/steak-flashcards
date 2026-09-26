@@ -90,6 +90,21 @@ def api_alerts(f: queries.Filters = Depends(get_filters), conn=Depends(get_conn)
     return queries.alerts(conn, f)
 
 
+@app.get("/api/actions")
+def api_actions(f: queries.Filters = Depends(get_filters), conn=Depends(get_conn)):
+    return queries.actions(conn, f)
+
+
+@app.post("/api/actions/{item_id}/status")
+def api_action_status(item_id: int, status: str, conn=Depends(get_conn)):
+    if status not in ("open", "done"):
+        return {"ok": False}
+    with conn:
+        conn.execute("UPDATE action_items SET status=?, done_at=CASE WHEN ?='done' THEN datetime('now') END WHERE id=?",
+                     (status, status, item_id))
+    return {"ok": True}
+
+
 @app.get("/")
 def index():
     return FileResponse(WEB / "index.html")
