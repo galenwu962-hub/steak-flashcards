@@ -14,13 +14,11 @@ from datetime import date, timedelta
 
 NEG_EXPR = ("CASE WHEN a.sentiment IS NOT NULL THEN (a.sentiment IN ('negative', 'neutral')) "
             "WHEN r.star IS NOT NULL AND r.star <= 3 THEN 1 ELSE 0 END")
-GRADES = [(0.08, "优秀"), (0.12, "正常"), (1.01, "问题")]
-
-
 def grade(rate: float | None) -> str | None:
+    """< 8% 优秀, 8%-12% (12% itself included) 正常, > 12% 问题."""
     if rate is None:
         return None
-    return next(label for limit, label in GRADES if rate < limit or limit > 1)
+    return "优秀" if rate < 0.08 else "正常" if rate <= 0.12 + 1e-9 else "问题"
 BASE_JOIN = "FROM reviews r LEFT JOIN review_analysis a ON a.review_id = r.id"
 
 
