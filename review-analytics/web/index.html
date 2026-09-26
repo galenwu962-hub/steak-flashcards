@@ -77,7 +77,8 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .legend { font-size: 12px; color: var(--muted); }
 .action { padding: 10px 0; border-top: 1px solid var(--border); }
 .action:first-of-type { border-top: 0; }
-.action label { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; cursor: pointer; }
+.action label { display: block; line-height: 1.7; cursor: pointer; }
+.action label > * { margin-right: 6px; }
 .action.done b { text-decoration: line-through; color: var(--muted); }
 .action.esc b { color: var(--bad); }
 .action .act { margin: 4px 0 4px 26px; color: var(--ink-2); font-size: 13px; }
