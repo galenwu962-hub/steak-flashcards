@@ -34,10 +34,10 @@ REVIEW_DAYS = 90   # the review list ships this many days of rows (full text + a
 
 STATIC_JS = r"""
 // --- static mode: answers come from window.STATIC instead of the API ---------------------
-function staticKey() {
+function staticKey(platform = state.platform) {
   const days = Math.round((new Date(state.to) - new Date(state.from)) / 864e5) + 1;
   const preset = STATIC.presets.reduce((b, p) => Math.abs(p - days) < Math.abs(b - days) ? p : b, STATIC.presets[0]);
-  return `${preset}|${state.stores[0] || ''}|${state.platform || ''}`;
+  return `${preset}|${state.stores[0] || ''}|${platform || ''}`;
 }
 function staticReviews(extra) {
   const from = state.from, to = state.to, sid = state.stores[0] ? +state.stores[0] : null, pl = state.platform || null;
@@ -53,7 +53,7 @@ function staticReviews(extra) {
   const size = 30, page = +extra.page || 1;
   return { total: rows.length, page, size, items: rows.slice((page - 1) * size, page * size) };
 }
-const api = (path, extra = {}) => Promise.resolve(path === 'reviews' ? staticReviews(extra) : (STATIC.data[staticKey()] || {})[path]);
+const api = (path, extra = {}) => Promise.resolve(path === 'reviews' ? staticReviews(extra) : path === 'actions' ? (STATIC.data[staticKey('')] || {}).actions : (STATIC.data[staticKey()] || {})[path]);
 """
 
 
@@ -80,8 +80,9 @@ def build_data(conn) -> dict:
                     "stores": queries.stores(conn, f), "aspects": queries.aspects(conn, f),
                     "dishes": queries.dishes(conn, f), "segments": seg,
                     "business": business, "alerts": queries.alerts(conn, f),
-                    "actions": queries.actions(conn, f),
                 }
+                if pl is None:  # improvement items do not depend on the platform; stored once per store
+                    data[f"{days}|{sid or ''}|"]["actions"] = queries.actions(conn, f)
         print(f"preset {days}d: {len(store_ids) * len(platforms)} combinations", file=sys.stderr)
 
     since = (end - timedelta(days=REVIEW_DAYS - 1)).isoformat()
