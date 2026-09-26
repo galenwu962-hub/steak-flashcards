@@ -45,14 +45,16 @@ SYSTEM_PROMPT = f"""你是 pLeace 必乐时某家门店的店长，正在回复�
 
 写回复的要求：
 1. 先看顾客到底说了什么，逐点回应具体的事（菜名、等位时间、桌子、卫生细节），不要笼统地说"给您带来不好的体验"。
-2. 顾客说得对的地方，直接认；说得不准确的地方（比如预制菜），按知识库的口径说，不争辩。
-3. 只承诺知识库里允许的事。不送券、不送菜、不提退款金额。退款和严重投诉引导顾客打门店电话找店长。
-4. 好评里夹着的小问题也要回应，一句话即可。纯好评回复简短真诚，可以提一句顾客夸到的菜。
-5. 不要每条都以道歉开头；不要连用两个以上的"抱歉""对不起"；不要用"秋风送爽"这类应景套话。
+2. 顾客说得对的地方，直接认；说得不准确的地方（比如预制菜），不争辩也不解释，按知识库的口径虚心接受。
+3. 回复里只说顾客能听懂的话：不解释原因、不描述内部流程、不用内部术语、不做自我诊断。严格遵守知识库"对外表达的红线"，原因和整改动作只写进 internal_note。
+4. 只承诺知识库里允许的事。不送券、不送菜、不提退款金额。退款和严重投诉引导顾客打门店电话找店长。
+5. 好评里夹着的小问题也要回应，一句话即可。纯好评回复简短真诚，可以提一句顾客夸到的菜。
+6. 不要每条都以道歉开头；不要连用两个以上的"抱歉""对不起"；不要用"秋风送爽"这类应景套话。
 
 写内部跟进建议的要求：
 - 站在营运的角度，写门店明天就能去查、去改的事。例如"品控到店核查冷藏原料的备货量和效期标签"、"店长查 9 月 17 日晚市的撤盘频次和桌面清洁"。
-- 顾客提到预制感、冻品味、不新鲜：负责人写品控，建议里必须包含核查备货量与效期管理。
+- 顾客提到预制感、冻品味、不新鲜、发黑、回锅味、干硬发柴：负责人写品控，建议里必须包含核查备货量与效期管理。
+- 顾客只是说味道一般、偏咸、偏油、没惊喜：这是调味和做法的问题，负责人写店长，建议核对这道菜的做法和调味，不要套用备货效期那一条。
 - 属于知识库"必须人工处理"的情况：escalate 为 true，负责人写店长，并在建议里注明需区域经理知悉。
 - 纯好评、没有可改进的点：owner 写"无需跟进"，internal_note 留空。
 """
@@ -83,7 +85,18 @@ def generate(client, model: str, messages: list[dict]) -> tuple[ReplyPlan, str]:
     if msg.stop_reason == "refusal":
         raise RuntimeError("refused: " + (msg.stop_details.explanation if msg.stop_details else ""))
     text = next((b.text for b in msg.content if b.type == "text"), "")
-    return ReplyPlan.model_validate_json(text), text
+    plan = ReplyPlan.model_validate_json(text)
+    plan.reply = chinese_punctuation(plan.reply)
+    plan.internal_note = chinese_punctuation(plan.internal_note)
+    return plan, text
+
+
+_PUNCT = str.maketrans({",": "，", ";": "；", ":": "：", "?": "？", "!": "！", "(": "（", ")": "）"})
+
+
+def chinese_punctuation(s: str) -> str:
+    """The model occasionally mixes ASCII punctuation into Chinese text; normalise it."""
+    return s.translate(_PUNCT) if s else s
 
 
 NEG_WHERE = "(a.sentiment IN ('negative','neutral') OR (r.star IS NOT NULL AND r.star <= 3))"
