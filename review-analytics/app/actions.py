@@ -30,7 +30,7 @@ from .db import connect
 from .knowledge import knowledge_text
 
 DEFAULT_MODEL = "claude-sonnet-5"
-MAX_POINTS = 150  # negative points fed per store; the most recent and lowest-star ones first
+MAX_POINTS = 300  # negative points fed per store; high-risk, most recent and lowest-star ones first
 
 
 class ActionItem(BaseModel):

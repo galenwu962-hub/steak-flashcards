@@ -49,8 +49,11 @@ def build(conn, date_to: str | None = None) -> dict:
 
     # Items: the latest period that ends inside this week is "this period"; earlier periods are
     # what the stores should have been working on.
-    cur_period = conn.execute("SELECT max(period_to) FROM action_items WHERE period_to <= ?", [date_to]).fetchone()[0]
-    cur_items = _items(conn, "i.period_to = ?", [cur_period]) if cur_period else []
+    # Two runs can end on the same day (e.g. 9/12–9/25 and 9/1–9/25): take the most recently generated one.
+    row = conn.execute("SELECT period_from, period_to FROM action_items WHERE period_to <= ? "
+                       "ORDER BY period_to DESC, created_at DESC LIMIT 1", [date_to]).fetchone()
+    cur_from, cur_period = (row[0], row[1]) if row else (None, None)
+    cur_items = _items(conn, "i.period_from = ? AND i.period_to = ?", [cur_from, cur_period]) if row else []
 
     red = []
     for it in cur_items:
@@ -63,8 +66,8 @@ def build(conn, date_to: str | None = None) -> dict:
     red_carry = [i for i in red if not i["week_evidence"] and i["status"] != "done"]
 
     themes = [dict(r) for r in conn.execute(
-        "SELECT * FROM themes WHERE period_to = (SELECT max(period_to) FROM themes WHERE period_to <= ?) "
-        "ORDER BY store_count DESC, evidence_total DESC", [date_to])]
+        "SELECT * FROM themes WHERE period_from = ? AND period_to = ? ORDER BY store_count DESC, evidence_total DESC",
+        [cur_from, cur_period])]
     prev_period = conn.execute("SELECT max(period_to) FROM themes WHERE period_to < ?",
                                [themes[0]["period_to"] if themes else date_to]).fetchone()[0]
     known_cats = {r[0] for r in conn.execute("SELECT category FROM themes WHERE period_to = ?", [prev_period])}
@@ -94,7 +97,7 @@ def build(conn, date_to: str | None = None) -> dict:
         "themes": themes, "new_themes": new_themes, "first_themes": not prev_period,
         "progress": sorted(progress.values(), key=lambda p: (p["done"] / p["total"], -p["total"])),
         "progress_first": not earlier,
-        "items_period": (cur_items[0]["period_from"], cur_period) if cur_items else None,
+        "items_period": (cur_from, cur_period) if cur_items else None,
     }
 
 

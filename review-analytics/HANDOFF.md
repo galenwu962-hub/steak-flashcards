@@ -63,6 +63,11 @@ python -m app.analyze status        # 应显示已分析 5,367 条
   **用户规矩：以后更新一律在这份文档上直接改，不要再新建文档。** `doc +import` 只会新建，所以更新时从 items.json 生成 Markdown
   （表格用 Markdown 表格），用 `dws doc +checkpoint-update`（先存版本再覆盖）或 `dws doc +update --node <上面的 ID> --command overwrite --content @<相对路径>.md`，
   改完 `doc +fetch` 回读核对。Word 版（report_docx.js）仍可生成给要下载的人。
+  已实现：`python -m app.export_items --from A --to B --out data/reports/items-X.json` → `python -m app.report_md <json> data/reports/改善事项清单.md`
+  → `dws doc +checkpoint-update --node <ID> --mode overwrite --content "@data/reports/改善事项清单.md" --yes`。
+- 2026-09-27 用户要求把清单时间段扩到 9/1–9/25：重新跑了 actions / themes / actionability（104 条，15 条红线，2 条仅知晓，10 个主题），
+  云文档已原地覆盖。**AI 表格「门店改善事项跟进」里仍是 9/12–9/25 的 94 条**，是否换成新清单等用户决定。
+  weekly.py 现在取「最近生成的那一期」（按 created_at），即 9/1–9/25；表格若不换，周报进度会和表格对不上。
   重新生成：`python -m app.export_items` → `NODE_PATH=$(npm root -g) node scripts/report_docx.js data/reports/items.json data/reports/改善事项清单.docx`
   → `dws doc +import --file data/reports/改善事项清单.docx --folder <我的文件 rootFolderId> --name ...`
   （rootFolderId 用 `dws wiki space list --type mySpace` 查；不带 --folder 会报默认位置不唯一）。
