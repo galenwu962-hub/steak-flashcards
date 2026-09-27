@@ -22,6 +22,9 @@ python -m app.analyze status        # 应显示已分析 5,367 条
 
 - 中差评 = AI 判定消极或中性（有文字的以内容为准，不看星级）；未解析的按星级 ≤ 3。门店分档：< 8% 优秀，8%–12% 正常，> 12% 问题。
 - AI 解析用 `claude-sonnet-5`，Batch 模式，默认跳过 40 字内的 5 星短评。
+- **用户规矩（2026-09-27）：例行更新一律用 Batch（半价，等几十分钟到几小时）**，只有用户当场等结果时才用同步调用。
+  目前只有 app/analyze.py 有 batch/collect；actions.py、themes.py、actionability.py 还是同步的，下次例行更新前要先给它们加 batch 模式
+  （照 analyze.py 的 Request/MessageCreateParamsNonStreaming 写法，custom_id 用 store_id 或 item id，send_later 每 15 分钟 collect）。
 - 回复建议（app/reply.py + app/knowledge.py）：店长口吻，像朋友，不卑微；**回复里不解释原因、不用内部术语、不自我诊断**；
   预制菜问题不正面回答，虚心接受；不承诺任何补偿（补救政策待营运确认）；退款和严重投诉引导打门店电话找店长。
 - 改善事项（app/actions.py）：按门店把负面意见（含好评里的抱怨）归纳成 3–8 条，带负责角色（店长 / 品控 / 区域经理）、动作、顾客原话；
@@ -101,3 +104,12 @@ python -m app.analyze status        # 应显示已分析 5,367 条
   管理员 = 流程创建人（吴之洋）。以后交营运管理时要把流程创建人/接收人换成营运。
 - 周报进度：先 `python -m app.sync_dingtalk` 把表格状态拉回数据库，再 `python -m app.weekly`。
 - 下一期事项要追加到同一张表（record create，字段 ID 见 app/sync_dingtalk.py 和 scratch 里的写法），不要新建表。
+
+## 7. 90 天评价洞察报告（2026-09-27）
+
+- 用户想让 5,367 条逐条解析（约 11 美元）有一份成果：钉钉云文档「pLeace 顾客评价 90 天洞察（6/28–9/25）」
+  https://alidocs.dingtalk.com/i/nodes/nYMoO1rWxaXaAR2PS9R9k51rV47Z3je9 。只用 SQL 汇总已有解析结果，没有再调 API。
+- 源文件 data/reports/90天评价洞察.md（不入库）。要点：中差评率 7 月 12.6% → 8/9 月 10.9%，8 月中后停滞；4 家店 >12%，天环广场唯一变差；
+  负面占比最高的是排队、空调、噪音、菜品温度、座位；腹心肉是全公司被吐槽最多的菜；周日最差；杭州恒隆卫生类投诉条数最多。
+- 更新同一份文档时照第 4 节规矩原地覆盖，不新建。
+
