@@ -114,3 +114,10 @@ python -m app.analyze status        # 应显示已分析 5,367 条
   负面占比最高的是排队、空调、噪音、菜品温度、座位；腹心肉是全公司被吐槽最多的菜；周日最差；杭州恒隆卫生类投诉条数最多。
 - 更新同一份文档时照第 4 节规矩原地覆盖，不新建。
 
+## 8. 腹心肉改良（2026-09-27，Q4 研发部 × 厨政部重点）
+
+- 云文档「椒麻炙烤腹心肉复核建议（研发部 × 厨政部）」：https://alidocs.dingtalk.com/i/nodes/P0MALyR8klYlmMwpIDM4EBo2W3bzYmDO （内嵌信息图）。
+- 信息图源文件 data/reports/fuxin_infographic.html，PNG 用 Playwright 1920×1080、deviceScaleFactor 2 截图（浏览器走 $HTTPS_PROXY 加载 Google Fonts）。
+- 口径：菜名含「腹心」的全部合并；90 天 920 个评价点、负面 147（35% 熟度口感、22% 薯条、8% 偏咸…，按原话关键词互斥归类）；基线 16%，Q4 目标 <10%。
+- 周报 app/weekly.py 的 TRACKED_DISHES 里追踪这道菜，要加别的重点菜品就往里加一行。
+

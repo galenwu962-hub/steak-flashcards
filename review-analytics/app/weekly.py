@@ -22,6 +22,12 @@ from .db import connect
 
 SMALL_SAMPLE = 20          # fewer reviews than this in a week: one review moves the rate by 5+ points
 THEMES_SHOWN = 5
+# Dishes the company is actively fixing: weekly share of negative points among all points about the dish.
+# baseline = the 90-day share when tracking started; target = the agreed goal.
+TRACKED_DISHES = [
+    {"name": "椒麻炙烤腹心肉", "like": "%腹心%", "baseline": 0.16, "target": 0.10, "note": "Q4 研发部 × 厨政部重点"},
+]
+TRACK_WEEKS = 8
 
 
 def short(name: str) -> str:
@@ -89,7 +95,21 @@ def build(conn, date_to: str | None = None) -> dict:
         elif it["priority"] == "高":
             p["high_open"] += 1
 
+    dishes = []
+    for t in TRACKED_DISHES:
+        weeks = []
+        for k in range(TRACK_WEEKS - 1, -1, -1):
+            w1 = d1 - timedelta(days=7 * k)
+            w0 = w1 - timedelta(days=6)
+            n, neg = conn.execute(
+                """SELECT count(*), coalesce(sum(x.sentiment = 'negative'), 0) FROM review_aspects x JOIN reviews r ON r.id = x.review_id
+                   WHERE (coalesce(x.dish, '') LIKE ? OR coalesce(x.dish_raw, '') LIKE ?) AND r.review_date BETWEEN ? AND ?""",
+                [t["like"], t["like"], w0.isoformat(), w1.isoformat()]).fetchone()
+            weeks.append({"from": w0.isoformat(), "to": w1.isoformat(), "n": n, "neg": neg, "share": neg / n if n else None})
+        dishes.append({**t, "weeks": weeks})
+
     return {
+        "tracked_dishes": dishes,
         "from": f.date_from, "to": f.date_to, "prev_from": prev.date_from, "prev_to": prev.date_to,
         "overall": ov, "stores": stores,
         "grade_counts": {g: sum(s["grade"] == g for s in stores) for g in order},
@@ -120,6 +140,37 @@ def _delta(cur, prev) -> str:
 def _md(d: str) -> str:
     x = date.fromisoformat(d)
     return f"{x.month}月{x.day}日"
+
+
+def _dish_rows(D: dict) -> str:
+    out = []
+    for t in D["tracked_dishes"]:
+        wk = t["weeks"]
+        cur, prv = wk[-1], wk[-2]
+        vals = [w["share"] for w in wk]
+        top = max([v for v in vals if v is not None] + [t["baseline"], t["target"]]) * 1.15 or 1
+        W, H = 220, 44
+        X = lambda i: 4 + i * (W - 8) / (len(wk) - 1)
+        Y = lambda v: H - 4 - v / top * (H - 8)
+        pts = [(X(i), Y(v)) for i, v in enumerate(vals) if v is not None]
+        dots = "".join(
+            f'<circle cx="{X(i):.1f}" cy="{Y(w["share"]):.1f}" r="{4 if i == len(wk) - 1 else 2.5}" class="{"end" if i == len(wk) - 1 else "pt"}">'
+            f'<title>{_md(w["from"])}–{_md(w["to"])}：负面 {w["neg"]}/{w["n"]}（{w["share"] * 100:.0f}%）</title></circle>'
+            for i, w in enumerate(wk) if w["share"] is not None)
+        spark = (f'<svg class="spark" viewBox="0 0 {W} {H}" role="img" aria-label="近 {len(wk)} 周负面占比">'
+                 f'<line x1="0" x2="{W}" y1="{Y(t["target"]):.1f}" y2="{Y(t["target"]):.1f}" class="tgt"/>'
+                 f'<polyline points="{" ".join(f"{x:.1f},{y:.1f}" for x, y in pts)}" class="ln"/>{dots}</svg>')
+        state = ("good" if cur["share"] is not None and cur["share"] <= t["target"] else "bad")
+        small = f'{cur["neg"]}/{cur["n"]} 个评价点' + (" · 样本少" if cur["n"] < 30 else "")
+        out.append(f"""
+      <tr>
+        <td class="store">{escape(t['name'])}<small class="muted">{escape(t['note'])}</small></td>
+        <td class="num rate {state}">{_pct(cur['share'])}<small>{small}</small></td>
+        <td class="num">{_delta(cur['share'], prv['share'])}</td>
+        <td class="num muted">{t['baseline'] * 100:.0f}% → {t['target'] * 100:.0f}%</td>
+        <td>{spark}</td>
+      </tr>""")
+    return "".join(out)
 
 
 def render(D: dict) -> str:
@@ -249,6 +300,14 @@ li:last-child {{ border-bottom: 0; padding-bottom: 0; }}
 .q, .meta {{ margin: 2px 0 0; font-size: 12px; color: var(--muted); }}
 .foot {{ font-size: 12px; color: var(--muted); margin: 12px 0 0; }}
 .none {{ color: var(--muted); }}
+.spark {{ width: 220px; height: 44px; display: block; }}
+.spark .ln {{ fill: none; stroke: var(--bad); stroke-width: 2; stroke-linejoin: round; }}
+.spark .pt {{ fill: var(--bad); }}
+.spark .end {{ fill: var(--bad); stroke: var(--paper); stroke-width: 2; }}
+.spark .tgt {{ stroke: var(--good); stroke-width: 1.5; stroke-dasharray: 4 3; }}
+.rate.bad {{ color: var(--bad); }} .rate.good {{ color: var(--good); }}
+td small.muted {{ display: block; font-size: 11px; color: var(--muted); font-weight: 400; }}
+td.muted {{ color: var(--muted); }}
 .pgs {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 6px 28px; }}
 .pg {{ display: grid; grid-template-columns: 7.5em 1fr 3.2em; gap: 10px; align-items: center; font-size: 13px; }}
 .pg .who {{ font-weight: 400; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
@@ -279,6 +338,15 @@ footer {{ font-size: 12px; color: var(--muted); display: grid; gap: 2px; }}
       </tbody>
     </table></div>
     <div class="scale"><span><i style="background:var(--track)"></i>&lt; 8% 优秀</span><span><i style="background:var(--band1)"></i>8%–12% 正常</span><span><i style="background:var(--band2)"></i>&gt; 12% 问题</span><span>样本少 = 本周评价不足 {SMALL_SAMPLE} 条，一条评价就能让比率变动 5 个百分点以上</span></div>
+  </section>
+
+  <section>
+    <h2>重点菜品追踪<small>负面占比 = 负面评价点 ÷ 这道菜的全部评价点；虚线为目标</small></h2>
+    <div class="scroll"><table>
+      <thead><tr><th>菜品</th><th>本周负面占比</th><th>较上周</th><th>基线 → 目标</th><th>近 {TRACK_WEEKS} 周</th></tr></thead>
+      <tbody>{_dish_rows(D)}
+      </tbody>
+    </table></div>
   </section>
 
   <div class="two">
