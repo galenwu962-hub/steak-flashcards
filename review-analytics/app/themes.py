@@ -5,6 +5,7 @@ category, then groups items that describe the same problem in several stores int
 cross-store themes with a company-level recommendation.
 
     python -m app.themes run --from 2026-09-12 --to 2026-09-25 [--model M]
+    python -m app.themes batch --from 2026-09-12 --to 2026-09-25 [--chain]   # half price, see app.batchjobs
     python -m app.themes show --from 2026-09-12 --to 2026-09-25
 """
 from __future__ import annotations
@@ -88,25 +89,14 @@ def build_messages(items: list[dict], d0: str, d1: str) -> list[dict]:
     return [{"role": "user", "content": "\n".join(lines)}]
 
 
-def cmd_run(args):
-    conn, client = connect(), make_client()
-    d0, d1 = args.__dict__["from"], args.to
-    items = load_items(conn, d0, d1)
-    if not items:
-        sys.exit("这个时间段没有改善事项，先运行 python -m app.actions run")
-    # one long answer (thinking + ~100 classified items + themes): stream it so the request never times out
-    with client.messages.stream(
-        model=args.model, max_tokens=48000,
-        system=SYSTEM_PROMPT, messages=build_messages(items, d0, d1),
+def request_params(model: str, messages: list[dict]) -> dict:
+    return dict(
+        model=model, max_tokens=48000, system=SYSTEM_PROMPT, messages=messages,
         output_config={"effort": "medium", "format": {"type": "json_schema", "schema": ThemeResult.model_json_schema()}},
-    ) as stream:
-        msg = stream.get_final_message()
-    if msg.stop_reason == "max_tokens":
-        sys.exit("输出被截断，请减少事项数量或提高 max_tokens")
-    if msg.stop_reason == "refusal":
-        sys.exit("refused")
-    text = next((b.text for b in msg.content if b.type == "text"), "")
-    res = ThemeResult.model_validate_json(text)
+    )
+
+
+def apply_result(conn, model: str, d0: str, d1: str, items: list[dict], res: ThemeResult) -> None:
     by_id = {it["id"]: it for it in items}
     with conn:
         for c in res.categories:
@@ -119,9 +109,52 @@ def cmd_run(args):
                 continue
             conn.execute("""INSERT INTO themes (period_from, period_to, model, title, category, store_count, evidence_total,
                             stores_json, item_ids_json, what_is_common, company_action) VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
-                         (d0, d1, args.model, t.title, t.category, len(stores), sum(by_id[i]["evidence_count"] or 0 for i in ids),
+                         (d0, d1, model, t.title, t.category, len(stores), sum(by_id[i]["evidence_count"] or 0 for i in ids),
                           json.dumps(stores, ensure_ascii=False), json.dumps(ids), t.what_is_common, t.company_action))
     print(f"分类 {len(res.categories)} 条，跨门店主题 {len(res.themes)} 个")
+
+
+def cmd_run(args):
+    conn, client = connect(), make_client()
+    d0, d1 = args.__dict__["from"], args.to
+    items = load_items(conn, d0, d1)
+    if not items:
+        sys.exit("这个时间段没有改善事项，先运行 python -m app.actions run")
+    # one long answer (thinking + ~100 classified items + themes): stream it so the request never times out
+    with client.messages.stream(**request_params(args.model, build_messages(items, d0, d1))) as stream:
+        msg = stream.get_final_message()
+    if msg.stop_reason == "max_tokens":
+        sys.exit("输出被截断，请减少事项数量或提高 max_tokens")
+    if msg.stop_reason == "refusal":
+        sys.exit("refused")
+    text = next((b.text for b in msg.content if b.type == "text"), "")
+    apply_result(conn, args.model, d0, d1, items, ThemeResult.model_validate_json(text))
+
+
+def submit_batch(conn, client, d0: str, d1: str, model: str, chain: bool = False) -> None:
+    from .batchjobs import submit
+    items = load_items(conn, d0, d1)
+    if not items:
+        print("这个时间段没有改善事项，跳过跨店主题")
+        return
+    submit(conn, client, "themes", {"from": d0, "to": d1, "model": model, "chain": chain},
+           [("themes", request_params(model, build_messages(items, d0, d1)))])
+
+
+def collect_batch(conn, client, meta: dict, results: dict) -> None:
+    text = results.get("themes")
+    if text is None:
+        print("  跨店主题没有结果，需要重跑（python -m app.themes run）；可落地审核未提交")
+        return
+    apply_result(conn, meta["model"], meta["from"], meta["to"], load_items(conn, meta["from"], meta["to"]),
+                 ThemeResult.model_validate_json(text))
+    if meta.get("chain"):
+        from . import actionability
+        actionability.submit_batch(conn, client, meta["from"], meta["to"], actionability.DEFAULT_MODEL)
+
+
+def cmd_batch(args):
+    submit_batch(connect(), make_client(), args.__dict__["from"], args.to, args.model, args.chain)
 
 
 def cmd_show(args):
@@ -141,9 +174,11 @@ def cmd_show(args):
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="command", required=True)
-    for name, fn in (("run", cmd_run), ("show", cmd_show)):
+    for name, fn in (("run", cmd_run), ("batch", cmd_batch), ("show", cmd_show)):
         p = sub.add_parser(name); p.add_argument("--from", required=True); p.add_argument("--to", required=True)
         p.add_argument("--model", default=DEFAULT_MODEL); p.set_defaults(fn=fn)
+        if name == "batch":
+            p.add_argument("--chain", action="store_true", help="收取后自动提交可落地审核")
     args = ap.parse_args(argv)
     args.fn(args)
 

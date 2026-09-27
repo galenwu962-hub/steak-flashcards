@@ -153,6 +153,15 @@ CREATE TABLE IF NOT EXISTS themes (
     company_action  TEXT
 );
 
+CREATE TABLE IF NOT EXISTS llm_jobs (       -- batches of the summary steps (app/batchjobs.py)
+    batch_id    TEXT PRIMARY KEY,
+    kind        TEXT NOT NULL,              -- actions | themes | actionability
+    meta_json   TEXT,                       -- period, model, chain flag, inputs needed to apply results
+    status      TEXT,
+    n_requests  INTEGER,
+    created_at  TEXT DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS analysis_jobs (
     batch_id    TEXT PRIMARY KEY,
     model       TEXT,

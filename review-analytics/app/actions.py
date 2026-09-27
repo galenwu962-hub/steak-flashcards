@@ -7,6 +7,7 @@ action and the customer quotes as evidence. Food-safety and pest issues are flag
 escalation.
 
     python -m app.actions run --from 2026-09-12 --to 2026-09-25 [--stores 1,5] [--model M]
+    python -m app.actions batch --from 2026-09-12 --to 2026-09-25 [--chain]   # half price, see app.batchjobs
     python -m app.actions show [--store 5]
     python -m app.actions done <item_id>
 
@@ -86,24 +87,24 @@ def build_messages(store: str, d0: str, d1: str, points: list[dict]) -> list[dic
     return [{"role": "user", "content": "\n".join(lines)}]
 
 
-def generate(client, model: str, messages: list[dict]) -> tuple[ActionPlan, str]:
-    msg = client.messages.create(
+def request_params(model: str, messages: list[dict]) -> dict:
+    return dict(
         model=model, max_tokens=6000,
         system=[{"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}],
         messages=messages,
         output_config={"effort": "medium", "format": {"type": "json_schema", "schema": ActionPlan.model_json_schema()}},
     )
+
+
+def generate(client, model: str, messages: list[dict]) -> tuple[ActionPlan, str]:
+    msg = client.messages.create(**request_params(model, messages))
     if msg.stop_reason == "refusal":
         raise RuntimeError("refused")
     text = next((b.text for b in msg.content if b.type == "text"), "")
     return ActionPlan.model_validate_json(text), text
 
 
-def run_store(conn, client, model: str, store_id: int, store: str, d0: str, d1: str) -> int:
-    points = negative_points(conn, store_id, d0, d1)
-    if not points:
-        return 0
-    plan, raw = generate(client, model, build_messages(store, d0, d1, points))
+def apply_plan(conn, model: str, store_id: int, d0: str, d1: str, points: list[dict], plan: ActionPlan) -> int:
     with conn:
         conn.execute("DELETE FROM action_items WHERE store_id=? AND period_from=? AND period_to=?", (store_id, d0, d1))
         for it in plan.items:
@@ -117,15 +118,61 @@ def run_store(conn, client, model: str, store_id: int, store: str, d0: str, d1: 
     return len(plan.items)
 
 
-def cmd_run(args):
-    conn, client = connect(), make_client()
+def run_store(conn, client, model: str, store_id: int, store: str, d0: str, d1: str) -> int:
+    points = negative_points(conn, store_id, d0, d1)
+    if not points:
+        return 0
+    plan, _ = generate(client, model, build_messages(store, d0, d1, points))
+    return apply_plan(conn, model, store_id, d0, d1, points, plan)
+
+
+def _period(conn, args) -> tuple[str, str]:
     d1 = args.to or conn.execute("SELECT max(review_date) FROM reviews").fetchone()[0]
     d0 = args.__dict__["from"] or (date.fromisoformat(d1) - timedelta(days=13)).isoformat()
+    return d0, d1
+
+
+def _stores(conn, args) -> list:
     stores = conn.execute("SELECT id, name FROM stores ORDER BY id").fetchall()
     if args.stores:
         keep = {int(x) for x in args.stores.split(",")}
         stores = [s for s in stores if s["id"] in keep]
-    for s in stores:
+    return stores
+
+
+def cmd_batch(args):
+    """Submit one batch request per store; `python -m app.batchjobs collect` applies the results."""
+    from .batchjobs import submit
+    conn, client = connect(), make_client()
+    d0, d1 = _period(conn, args)
+    reqs, points = [], {}
+    for s in _stores(conn, args):
+        pts = negative_points(conn, s["id"], d0, d1)
+        if pts:
+            points[str(s["id"])] = [{k: p[k] for k in ("review_id", "quote", "dish", "star", "review_date")} for p in pts]
+            reqs.append((f"store-{s['id']}", request_params(args.model, build_messages(s["name"], d0, d1, pts))))
+    # the negative points are saved with the job: evidence numbers in the answers refer to this exact list
+    submit(conn, client, "actions", {"from": d0, "to": d1, "model": args.model, "chain": args.chain, "points": points}, reqs)
+
+
+def collect_batch(conn, client, meta: dict, results: dict) -> None:
+    names = dict(conn.execute("SELECT id, name FROM stores").fetchall())
+    for cid, text in results.items():
+        sid = int(cid.split("-")[1])
+        if text is None:
+            print(f"  {names[sid]}: 没有结果，需要单独重跑（python -m app.actions run --stores {sid}）")
+            continue
+        n = apply_plan(conn, meta["model"], sid, meta["from"], meta["to"], meta["points"][str(sid)], ActionPlan.model_validate_json(text))
+        print(f"  {names[sid]}: {n} 条改善事项")
+    if meta.get("chain"):
+        from . import themes
+        themes.submit_batch(conn, client, meta["from"], meta["to"], themes.DEFAULT_MODEL, chain=True)
+
+
+def cmd_run(args):
+    conn, client = connect(), make_client()
+    d0, d1 = _period(conn, args)
+    for s in _stores(conn, args):
         try:
             n = run_store(conn, client, args.model, s["id"], s["name"], d0, d1)
             print(f"{s['name']}: {n} 条改善事项")
@@ -164,6 +211,11 @@ def main(argv=None):
     sub = ap.add_subparsers(dest="command", required=True)
     run = sub.add_parser("run"); run.add_argument("--from"); run.add_argument("--to"); run.add_argument("--stores")
     run.add_argument("--model", default=DEFAULT_MODEL); run.set_defaults(fn=cmd_run)
+    batch = sub.add_parser("batch", help="批量模式（半价）：提交后用 python -m app.batchjobs collect 收取")
+    batch.add_argument("--from"); batch.add_argument("--to"); batch.add_argument("--stores")
+    batch.add_argument("--model", default=DEFAULT_MODEL)
+    batch.add_argument("--chain", action="store_true", help="收取后自动接着提交跨店主题和可落地审核")
+    batch.set_defaults(fn=cmd_batch)
     show = sub.add_parser("show"); show.add_argument("--store", type=int); show.set_defaults(fn=cmd_show)
     done = sub.add_parser("done"); done.add_argument("item_id", type=int); done.set_defaults(fn=cmd_done)
     args = ap.parse_args(argv)

@@ -9,6 +9,7 @@ nothing to change. For every item this re-reads the full text of the reviews beh
 * 仅知晓 - nothing concrete anywhere; kept for awareness only (no deadline, no reminders).
 
     python -m app.actionability run [--from 2026-09-12 --to 2026-09-25] [--model M]
+    python -m app.actionability batch [--from ... --to ...]      # half price, see app.batchjobs
     python -m app.actionability show
 
 Writes action_items.kind (整改 / 知晓), kind_reason, and the rewritten title/action (the
@@ -65,42 +66,83 @@ def build_message(conn, it: dict) -> list[dict]:
     return [{"role": "user", "content": "\n".join(lines)}]
 
 
-def judge(client, model: str, messages: list[dict]) -> Verdict:
-    msg = client.messages.create(
+def request_params(model: str, messages: list[dict]) -> dict:
+    return dict(
         model=model, max_tokens=2000,
         system=[{"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}],
         messages=messages,
         output_config={"effort": "medium", "format": {"type": "json_schema", "schema": Verdict.model_json_schema()}},
     )
+
+
+def judge(client, model: str, messages: list[dict]) -> Verdict:
+    msg = client.messages.create(**request_params(model, messages))
     if msg.stop_reason == "refusal":
         raise RuntimeError("refused")
     return Verdict.model_validate_json(next((b.text for b in msg.content if b.type == "text"), ""))
 
 
-def cmd_run(args):
-    conn, client = connect(), make_client()
-    d1 = args.to or conn.execute("SELECT max(period_to) FROM action_items").fetchone()[0]
-    d0 = args.__dict__["from"] or conn.execute("SELECT max(period_from) FROM action_items WHERE period_to = ?", [d1]).fetchone()[0]
-    items = [dict(r) for r in conn.execute(
+def load_items(conn, d0: str, d1: str) -> list[dict]:
+    return [dict(r) for r in conn.execute(
         """SELECT i.*, s.name AS store FROM action_items i JOIN stores s ON s.id = i.store_id
            WHERE i.period_from = ? AND i.period_to = ? ORDER BY i.id""", (d0, d1))]
+
+
+def apply_verdict(conn, it: dict, v: Verdict) -> None:
+    with conn:
+        conn.execute(
+            """UPDATE action_items SET kind = ?, kind_reason = ?, title_orig = coalesce(title_orig, title),
+               action_orig = coalesce(action_orig, action), title = ?, action = ? WHERE id = ?""",
+            ("知晓" if v.verdict == "仅知晓" else "整改", v.reason,
+             v.title if v.verdict == "改写后可执行" else (it["title_orig"] or it["title"]),
+             v.action if v.verdict != "可执行" else (it["action_orig"] or it["action"]), it["id"]))
+
+
+def _period(conn, args) -> tuple[str, str]:
+    d1 = args.to or conn.execute("SELECT max(period_to) FROM action_items").fetchone()[0]
+    d0 = args.__dict__["from"] or conn.execute("SELECT max(period_from) FROM action_items WHERE period_to = ?", [d1]).fetchone()[0]
+    return d0, d1
+
+
+def cmd_run(args):
+    conn, client = connect(), make_client()
     counts = {}
-    for it in items:
+    for it in load_items(conn, *_period(conn, args)):
         try:
             v = judge(client, args.model, build_message(conn, it))
         except Exception as e:  # noqa: BLE001
             print(f"[{it['id']}] 失败 {e}")
             continue
-        with conn:
-            conn.execute(
-                """UPDATE action_items SET kind = ?, kind_reason = ?, title_orig = coalesce(title_orig, title),
-                   action_orig = coalesce(action_orig, action), title = ?, action = ? WHERE id = ?""",
-                ("知晓" if v.verdict == "仅知晓" else "整改", v.reason,
-                 v.title if v.verdict == "改写后可执行" else (it["title_orig"] or it["title"]),
-                 v.action if v.verdict != "可执行" else (it["action_orig"] or it["action"]), it["id"]))
+        apply_verdict(conn, it, v)
         counts[v.verdict] = counts.get(v.verdict, 0) + 1
         print(f"[{it['id']}] {v.verdict} · {v.title} —— {v.reason}")
     print(counts)
+
+
+def submit_batch(conn, client, d0: str, d1: str, model: str) -> None:
+    from .batchjobs import submit
+    items = load_items(conn, d0, d1)
+    submit(conn, client, "actionability", {"from": d0, "to": d1, "model": model},
+           [(f"item-{it['id']}", request_params(model, build_message(conn, it))) for it in items])
+
+
+def collect_batch(conn, client, meta: dict, results: dict) -> None:
+    by_id = {it["id"]: it for it in load_items(conn, meta["from"], meta["to"])}
+    counts = {}
+    for cid, text in results.items():
+        it = by_id.get(int(cid.split("-")[1]))
+        if it is None or text is None:
+            print(f"  [{cid}] 没有结果，可单独用 python -m app.actionability run 补跑")
+            continue
+        v = Verdict.model_validate_json(text)
+        apply_verdict(conn, it, v)
+        counts[v.verdict] = counts.get(v.verdict, 0) + 1
+    print(f"  可落地审核：{counts}")
+
+
+def cmd_batch(args):
+    conn = connect()
+    submit_batch(conn, make_client(), *_period(conn, args), args.model)
 
 
 def cmd_show(args):
@@ -117,6 +159,8 @@ def main(argv=None):
     sub = ap.add_subparsers(dest="command", required=True)
     run = sub.add_parser("run"); run.add_argument("--from"); run.add_argument("--to")
     run.add_argument("--model", default=DEFAULT_MODEL); run.set_defaults(fn=cmd_run)
+    batch = sub.add_parser("batch"); batch.add_argument("--from"); batch.add_argument("--to")
+    batch.add_argument("--model", default=DEFAULT_MODEL); batch.set_defaults(fn=cmd_batch)
     show = sub.add_parser("show"); show.set_defaults(fn=cmd_show)
     args = ap.parse_args(argv)
     args.fn(args)

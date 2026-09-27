@@ -23,8 +23,9 @@ python -m app.analyze status        # 应显示已分析 5,367 条
 - 中差评 = AI 判定消极或中性（有文字的以内容为准，不看星级）；未解析的按星级 ≤ 3。门店分档：< 8% 优秀，8%–12% 正常，> 12% 问题。
 - AI 解析用 `claude-sonnet-5`，Batch 模式，默认跳过 40 字内的 5 星短评。
 - **用户规矩（2026-09-27）：例行更新一律用 Batch（半价，等几十分钟到几小时）**，只有用户当场等结果时才用同步调用。
-  目前只有 app/analyze.py 有 batch/collect；actions.py、themes.py、actionability.py 还是同步的，下次例行更新前要先给它们加 batch 模式
-  （照 analyze.py 的 Request/MessageCreateParamsNonStreaming 写法，custom_id 用 store_id 或 item id，send_later 每 15 分钟 collect）。
+  逐条解析：`python -m app.analyze batch` → `collect`。归纳三步（2026-09-27 加上）：
+  `python -m app.actions batch --from A --to B --chain` 一次提交，然后每 15 分钟 `python -m app.batchjobs collect`（用 send_later），
+  收到改善事项后自动提交跨店主题，收到主题后自动提交可落地审核，直到提示「全部完成」。批次记录在 llm_jobs 表。
 - 回复建议（app/reply.py + app/knowledge.py）：店长口吻，像朋友，不卑微；**回复里不解释原因、不用内部术语、不自我诊断**；
   预制菜问题不正面回答，虚心接受；不承诺任何补偿（补救政策待营运确认）；退款和严重投诉引导打门店电话找店长。
 - 改善事项（app/actions.py）：按门店把负面意见（含好评里的抱怨）归纳成 3–8 条，带负责角色（店长 / 品控 / 区域经理）、动作、顾客原话；
