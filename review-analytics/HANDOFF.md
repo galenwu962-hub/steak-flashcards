@@ -66,8 +66,8 @@ python -m app.analyze status        # 应显示已分析 5,367 条
   已实现：`python -m app.export_items --from A --to B --out data/reports/items-X.json` → `python -m app.report_md <json> data/reports/改善事项清单.md`
   → `dws doc +checkpoint-update --node <ID> --mode overwrite --content "@data/reports/改善事项清单.md" --yes`。
 - 2026-09-27 用户要求把清单时间段扩到 9/1–9/25：重新跑了 actions / themes / actionability（104 条，15 条红线，2 条仅知晓，10 个主题），
-  云文档已原地覆盖。**AI 表格「门店改善事项跟进」里仍是 9/12–9/25 的 94 条**，是否换成新清单等用户决定。
-  weekly.py 现在取「最近生成的那一期」（按 created_at），即 9/1–9/25；表格若不换，周报进度会和表格对不上。
+  云文档已原地覆盖；AI 表格也已按用户同意换成这 104 条（先建新的再删旧的 94 条，旧的无人改过）。102 条整改带截止日期，2 条仅知晓无截止日期。
+  weekly.py 取「最近生成的那一期」（按 created_at），即 9/1–9/25，和表格一致。
   重新生成：`python -m app.export_items` → `NODE_PATH=$(npm root -g) node scripts/report_docx.js data/reports/items.json data/reports/改善事项清单.docx`
   → `dws doc +import --file data/reports/改善事项清单.docx --folder <我的文件 rootFolderId> --name ...`
   （rootFolderId 用 `dws wiki space list --type mySpace` 查；不带 --folder 会报默认位置不唯一）。
@@ -91,11 +91,11 @@ python -m app.analyze status        # 应显示已分析 5,367 条
 
 ## 6. 改善事项跟进表（钉钉 AI 表格，2026-09-26 建）
 
-- 表格「门店改善事项跟进」：https://alidocs.dingtalk.com/i/nodes/Amq4vjg890Dmk3B3sxYMD45nJ3kdP0wQ ，94 条事项已导入，
+- 表格「门店改善事项跟进」：https://alidocs.dingtalk.com/i/nodes/Amq4vjg890Dmk3B3sxYMD45nJ3kdP0wQ ，现为 9/1–9/25 的 104 条事项，
   字段「事项编号」= action_items.id。下发日期统一 9-28；截止日期 = 红线 +1 天、高 +3、中 +7、低 +14。负责人字段暂空，等杨丽娜给店长名单后填。
 - 视图：全部事项（按门店）/ 处理看板（按状态，只含「整改」）/ 逾期事项 / 红线事项 / 仅知晓（留意即可）；仪表盘「改善事项进度」6 个图表，
   完成进度、各门店处理情况、未完成分类都只算「整改」。
-- 2026-09-26 可落地审核后：57 条原本具体、29 条按评价原文改写、8 条仅知晓（类型=仅知晓，截止日期已清空，所以不会触发提醒）。
+- 可落地审核：仅知晓的事项不设截止日期，所以不会触发提醒。
   日期清空要传 ""（传 null 无效）；单选字段清不掉，所以仅知晓的状态仍显示待处理，靠「类型」区分。字段：类型 Rxzh58D，说明 WlgwxOy，相关评价数 Jzs930T。
 - 自动化（已启用）：到期当天提醒、逾期一天提醒（有负责人发负责人+管理员，没有只发管理员）、每周一逾期汇总（只发管理员）。
   管理员 = 流程创建人（吴之洋）。以后交营运管理时要把流程创建人/接收人换成营运。
