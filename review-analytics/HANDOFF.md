@@ -120,4 +120,6 @@ python -m app.analyze status        # 应显示已分析 5,367 条
 - 信息图源文件 data/reports/fuxin_infographic.html，PNG 用 Playwright 1920×1080、deviceScaleFactor 2 截图（浏览器走 $HTTPS_PROXY 加载 Google Fonts）。
 - 口径：菜名含「腹心」的全部合并；90 天 920 个评价点、负面 147（35% 熟度口感、22% 薯条、8% 偏咸…，按原话关键词互斥归类）；基线 16%，Q4 目标 <10%。
 - 周报 app/weekly.py 的 TRACKED_DISHES 里追踪这道菜，要加别的重点菜品就往里加一行。
+- 2026-09-28 周会补充（张蓓/采购）：多店反馈来料腹心肉肉条过细无法使用；已定无法使用部分供应商赔偿、持续开发新厂号和供应商。
+  文档和信息图已加「采购部」一栏；文档是用 block 级编辑改的（图片块要先 block_delete 再 media-insert，表格里的文字 str_replace 不到，要 block_replace 整张表）。
 
