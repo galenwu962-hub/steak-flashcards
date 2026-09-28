@@ -104,6 +104,7 @@ python -m app.analyze status        # 应显示已分析 5,367 条
 - 自动化（已启用）：到期当天提醒、逾期一天提醒（有负责人发负责人+管理员，没有只发管理员）、每周一逾期汇总（只发管理员）。
   管理员 = 流程创建人（吴之洋）。以后交营运管理时要把流程创建人/接收人换成营运。
 - 周报进度：先 `python -m app.sync_dingtalk` 把表格状态拉回数据库，再 `python -m app.weekly`。
+- 2026-09-28 已给张异香（userId 17629152145383692，高级食安品控经理）开「可查看」权限并单聊发了链接（`dws doc +grant-and-share`）。
 - 下一期事项要追加到同一张表（record create，字段 ID 见 app/sync_dingtalk.py 和 scratch 里的写法），不要新建表。
 
 ## 7. 90 天评价洞察报告（2026-09-27）
