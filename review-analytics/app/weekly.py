@@ -24,10 +24,10 @@ SMALL_SAMPLE = 20          # fewer reviews than this in a week: one review moves
 THEMES_SHOWN = 5
 # Dishes the company is actively fixing, tracked by their clear-dissatisfaction rate (app/dish_kpi.py):
 # reviews clearly unhappy with the dish ÷ reviews mentioning it. baseline = September 2026 under that
-# definition (matches 品控's hand count); target = the Q4 goal once the owner sets it (None = not set yet).
+# definition (matches 品控's hand count); target = the Q4 goal the owner set on 2026-10-05 (None = not set yet).
 TRACKED_DISHES = [
     {"key": "腹心肉", "name": "椒麻炙烤腹心肉", "baseline": 0.087, "baseline_label": "9月",
-     "target": None, "note": "Q4 店总 × 总厨考核"},
+     "target": 0.05, "note": "Q4 店总 × 总厨考核"},
 ]
 TRACK_WEEKS = 8
 
