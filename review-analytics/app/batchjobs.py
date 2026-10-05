@@ -48,8 +48,9 @@ def _results(client, batch_id: str) -> dict[str, str | None]:
 
 
 def _handlers() -> dict[str, Callable]:
-    from . import actionability, actions, themes
-    return {"actions": actions.collect_batch, "themes": themes.collect_batch, "actionability": actionability.collect_batch}
+    from . import actionability, actions, dish_kpi, themes
+    return {"actions": actions.collect_batch, "themes": themes.collect_batch, "actionability": actionability.collect_batch,
+            "dish_kpi": dish_kpi.collect_batch}
 
 
 def collect(conn, client) -> int:

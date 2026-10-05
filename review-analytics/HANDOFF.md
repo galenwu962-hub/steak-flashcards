@@ -119,8 +119,30 @@ python -m app.analyze status        # 应显示已分析 5,367 条
 
 - 云文档「椒麻炙烤腹心肉复核建议（研发部 × 厨政部）」：https://alidocs.dingtalk.com/i/nodes/P0MALyR8klYlmMwpIDM4EBo2W3bzYmDO （内嵌信息图）。
 - 信息图源文件 data/reports/fuxin_infographic.html，PNG 用 Playwright 1920×1080、deviceScaleFactor 2 截图（浏览器走 $HTTPS_PROXY 加载 Google Fonts）。
-- 口径：菜名含「腹心」的全部合并；90 天 920 个评价点、负面 147（35% 熟度口感、22% 薯条、8% 偏咸…，按原话关键词互斥归类）；基线 16%，Q4 目标 <10%。
+- 旧口径（已停用于考核）：菜名含「腹心」的全部合并；90 天 920 个评价点、负面 147（35% 熟度口感、22% 薯条、8% 偏咸…，按原话关键词互斥归类）；负面点占比 16%。
+  复核文档、信息图里写的「基线 16%、目标 10%」还是旧口径，用户定下 Q4 目标后要一起改。
 - 周报 app/weekly.py 的 TRACKED_DISHES 里追踪这道菜，要加别的重点菜品就往里加一行。
 - 2026-09-28 周会补充（张蓓/采购）：多店反馈来料腹心肉肉条过细无法使用；已定无法使用部分供应商赔偿、持续开发新厂号和供应商。
   文档和信息图已加「采购部」一栏；文档是用 block 级编辑改的（图片块要先 block_delete 再 media-insert，表格里的文字 str_replace 不到，要 block_replace 整张表）。
+
+## 9. 腹心肉考核口径（2026-10-05 定，Q4 店总 × 总厨 KPI）
+
+- 起因：品控张异香手工过了 9 月全部点评，算出 8.7%；和旧口径 16% 对不上。两个都没错，旧口径按评价点算、连薯条和小建议都算。
+- 新口径「明确不满率」= 对这道菜本身明确不满的评价 ÷ 提到这道菜的评价（app/dish_kpi.py，结果存 dish_judgments 表）。
+  用户逐条审定的标准：只嫌薯条/酱汁/熟度选项、好评里的建议语气（「如果更嫩一些就好了」）、夸贬参半 → 不算；
+  熟度跟点的不一致（「选七分实际九分」，即使说嫩）、「性价比普通+薯条又油又干」→ 算。
+  「中规中矩」「没觉得什么感觉」「肉一般吧，但性价比不错」这类不温不火的，暂按不算，**待用户确认**。
+- 9 月全月：208 条提到、18 条明确不满 = 8.7%，与异香手工数一致。Q4 目标**用户还没定**（我建议 5% 以下），周报里显示「待定」。
+- 对这道菜只有正面评价点的直接按规则判不算；其余逐条交模型判。例行：`python -m app.dish_kpi batch --from A --to B` → `python -m app.batchjobs collect`。
+  `python -m app.dish_kpi show --from A --to B` 列出所有判为不满的评价，给品控抽查。
+- 门店一个月提到这道菜多在 30 条以下，建议门店按季度累计考核。
+
+## 10. 周报和月报（每周一出周报，每月第一个周一加出月报）
+
+- 流程：`bash scripts/portal.sh pull`（登录失效才要验证码）→ `python -m app.analyze batch --since <上月1日> --model claude-sonnet-5`
+  → `python -m app.dish_kpi batch ...` → 轮询 `analyze collect` 和 `batchjobs collect` → `python -m app.sync_dingtalk`
+  → `python -m app.weekly --to <上周日>`；月报 `python -m app.monthly --month YYYY-MM --notes <要点文件>`（要点一行一条，手写）。
+- 周报新增：本周高风险评价（review_analysis.risk = high，还没归纳进事项的，标「新评价」）；某天没评价或不足 5 条时顶部提示数据不完整。
+- PDF：用 Playwright 把 HTML 渲染成一整页长版 PDF（宽 960px、高度随内容），用户发微信给总办。
+- 2026-10-05：国庆期间顾客说平台 10/2–10/4 几乎没有数据（10/1 有 61 条，10/4 只有 1 条），周报已标注，数据补齐后要重出。
 
