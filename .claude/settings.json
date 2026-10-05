@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(review-analytics/scripts/portal.sh *)",
+      "Bash(bash review-analytics/scripts/portal.sh *)",
+      "Bash(scripts/portal.sh *)",
+      "Bash(bash scripts/portal.sh *)"
+    ]
+  },
+  "autoMode": {
+    "allow": [
+      "$defaults",
+      "review-analytics/scripts/portal.sh: the repository owner asked for this weekly step. It starts a background Playwright browser on the 顾客说 review portal (cs.mlkee.com), waits on 127.0.0.1:8765 for the captcha text and SMS code the owner relays, saves the portal session to review-analytics/scripts/state.json, and pulls review data with it. Keeping that browser and session file alive between the owner's replies is authorized."
+    ]
+  }
+}
