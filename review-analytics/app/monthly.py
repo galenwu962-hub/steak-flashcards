@@ -286,7 +286,7 @@ table.tight td small {{ display: block; font-size: 11px; color: var(--muted); fo
         <div><span class="v" style="color:var(--bad)">{P['overdue']}</span><span class="l">已逾期，其中红线 {P['overdue_red']}</span></div>
         <div><span class="v">{P['due_today']}</span><span class="l">今天到期</span></div>
       </div>
-      <p class="foot">共 {P['total']} 条，由 9 月 1 日–25 日的评价归纳；其中 {P['aware']} 条仅需知晓，不计入。状态以钉钉「门店改善事项跟进」表为准，统计到 {_md(D['today'])}。</p>
+      <p class="foot">共 {P['total']} 条，由 9 月 1 日–25 日的评价归纳；其中 {P['aware']} 条仅需知晓，不计入。这里是钉钉「门店改善事项跟进」表里的状态，执行进度以品控 QSC 追踪表为准；统计到 {_md(D['today'])}。</p>
     </section>
   </div>
 
