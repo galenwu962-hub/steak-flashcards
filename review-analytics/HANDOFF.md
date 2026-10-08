@@ -152,6 +152,10 @@ python -m app.analyze status        # 应显示已分析 5,367 条
   → `python -m app.weekly --to <上周日>`；月报 `python -m app.monthly --month YYYY-MM --notes <要点文件>`（要点一行一条，手写）。
 - 周报新增：本周高风险评价（review_analysis.risk = high，还没归纳进事项的，标「新评价」）；某天没评价或不足 5 条时顶部提示数据不完整。
 - PDF 和图片：`node scripts/render_report.js <html> --pdf <out.pdf> --png <out.png>`，一整页长版（宽 960px，图片 2 倍清晰度），用户发微信给总办。
+  **用户规矩（2026-10-08）：周报、月报生成后，直接把一页纸图片单聊发给张异香和杨丽娜（Nina），不用再问用户。**
+  先发一句要点（全公司中差评率及变化、问题门店、腹心肉明确不满率对目标），再发图片：
+  `dws chat message send --user <id> --content "<要点>"`，然后 `--msg-type file --file data/reports/<图片>.png`；
+  用 `query-send-status` 确认送达。不给她们开文件夹权限（用户说暂时不需要）。数据不完整的周（如平台缺天）在要点里注明。
   周报的一页纸图片也要上传到下面的文件夹：`dws drive +upload --file data/reports/门店口碑周报_MMDD-MMDD.png --folder <folder id>`（2026-10-07 用户要求）。
 - **钉钉文件夹「门店口碑周报·月报」**（我的文档根目录，用户 2026-10-05 要求专门存周报月报）：
   https://alidocs.dingtalk.com/i/nodes/1zknDm0WRaYaERL0SzXgK3Nw8BQEx5rG （folder id 1zknDm0WRaYaERL0SzXgK3Nw8BQEx5rG）。
