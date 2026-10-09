@@ -155,11 +155,19 @@ CREATE TABLE IF NOT EXISTS themes (
 
 CREATE TABLE IF NOT EXISTS llm_jobs (       -- batches of the summary steps (app/batchjobs.py)
     batch_id    TEXT PRIMARY KEY,
-    kind        TEXT NOT NULL,              -- actions | themes | actionability | dish_kpi
+    kind        TEXT NOT NULL,              -- actions | themes | actionability | dish_kpi | complaints
     meta_json   TEXT,                       -- period, model, chain flag, inputs needed to apply results
     status      TEXT,
     n_requests  INTEGER,
     created_at  TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS review_judgments (  -- 4-star-plus reviews: does it name a specific problem? (app/complaints.py)
+    review_id   TEXT PRIMARY KEY,
+    specific    INTEGER NOT NULL,           -- 1 具体问题 (counts as 中差评) | 0 笼统意见
+    reason      TEXT,
+    model       TEXT,
+    judged_at   TEXT DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS dish_judgments (  -- tracked-dish KPI: is the customer clearly unhappy with the dish (app/dish_kpi.py)

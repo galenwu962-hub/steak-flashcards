@@ -291,7 +291,7 @@ table.tight td small {{ display: block; font-size: 11px; color: var(--muted); fo
   </div>
 
   <footer>
-    <span>中差评：AI 判定为消极或中性的评价（有文字的以内容为准，不看星级）；未解析的按星级 ≤ 3 计。</span>
+    <span>中差评：4 星以下（含 3.5 星）一律算；4 星及以上只有指出具体问题（某道菜、服务环节、等位、环境、卫生、价格等）才算，「一般」「中规中矩」这类笼统意见不算。</span>
     <span>数据来自大众点评、美团，{_md(D['from'])}–{_md(D['to'])}。</span>
   </footer>
 </div>

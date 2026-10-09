@@ -1,8 +1,10 @@
 """Aggregation queries behind the dashboard API.
 
-One definition of 中差评 everywhere: when the review has been analysed, the Claude
-verdict decides (negative or neutral = 中差评, positive = 好评, whatever the stars say);
-a review without analysis (short 5-star praise, or not yet analysed) falls back to star ≤ 3.
+One definition of 中差评 everywhere (owner's rule, 2026-10-09):
+* rated below 4 stars (3.5 included): always 中差评, however positive the text;
+* rated 4 stars or more: 中差评 only when it names a specific problem (app/complaints.py,
+  table review_judgments). Until a review is judged, the per-review analysis stands in
+  (negative or neutral = 中差评); unanalysed 4-star-plus reviews (short praise) are 好评.
 
 Store grades on the 中差评率: < 8% 优秀, 8-12% 正常, > 12% 问题门店.
 """
@@ -12,8 +14,9 @@ import sqlite3
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 
-NEG_EXPR = ("CASE WHEN a.sentiment IS NOT NULL THEN (a.sentiment IN ('negative', 'neutral')) "
-            "WHEN r.star IS NOT NULL AND r.star <= 3 THEN 1 ELSE 0 END")
+NEG_EXPR = ("CASE WHEN coalesce(r.rating, r.star) < 4 THEN 1 "
+            "ELSE coalesce((SELECT j.specific FROM review_judgments j WHERE j.review_id = r.id), "
+            "CASE WHEN a.sentiment IN ('negative', 'neutral') THEN 1 ELSE 0 END) END")
 def grade(rate: float | None) -> str | None:
     """< 8% 优秀, 8%-12% (12% itself included) 正常, > 12% 问题."""
     if rate is None:
