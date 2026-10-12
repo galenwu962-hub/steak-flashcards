@@ -27,6 +27,9 @@ def fetch_records() -> list[dict]:
     data = json.loads(out[out.index("{"):])["data"]
     if not data.get("complete"):
         raise RuntimeError("AI 表格记录没有取全，本次不同步")
+    if not data.get("records"):
+        # the API sometimes answers "complete" with no records while it is not ready (DataNotReady)
+        raise RuntimeError("AI 表格这次没返回任何记录（钉钉接口暂时不可用），本次不同步，稍后重试")
     return data["records"]
 
 

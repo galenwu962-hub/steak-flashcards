@@ -151,6 +151,10 @@ python -m app.analyze status        # 应显示已分析 5,367 条
 
 ## 10. 周报和月报（每周一出周报，每月第一个周一加出月报）
 
+- **定时任务（2026-10-12 用户设定）**：Routine「每周一 门店口碑周报」trig_01PHzYSM8RAxceQAEuwSDQXZ，每周一 9:05（北京时间）唤醒本会话，
+  按任务里写好的 8 步跑上周周报并发给异香和 Nina；上周缺 2 天以上数据就不发，只告诉用户。改时间或停用用 update_trigger / delete_trigger。
+  依赖本会话机器上的数据库、`scripts/state.json`（顾客说登录）和 dws 登录；顾客说登录失效时要用户转告验证码。月报暂不自动出。
+
 - 流程：`bash scripts/portal.sh pull`（登录失效才要验证码）→ `python -m app.analyze batch --since <上月1日> --model claude-sonnet-5`
   → `python -m app.dish_kpi batch ...` → 轮询 `analyze collect` 和 `batchjobs collect` → `python -m app.sync_dingtalk`
   → `python -m app.weekly --to <上周日>`；月报 `python -m app.monthly --month YYYY-MM --notes <要点文件>`（要点一行一条，手写）。
