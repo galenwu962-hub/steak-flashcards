@@ -153,7 +153,8 @@ python -m app.analyze status        # 应显示已分析 5,367 条
 
 - **定时任务（2026-10-12 用户设定）**：Routine「每周一 门店口碑周报」trig_01PHzYSM8RAxceQAEuwSDQXZ，每周一 9:05（北京时间）唤醒本会话，
   按任务里写好的 8 步跑上周周报并发给异香和 Nina；上周缺 2 天以上数据就不发，只告诉用户。改时间或停用用 update_trigger / delete_trigger。
-  依赖本会话机器上的数据库、`scripts/state.json`（顾客说登录）和 dws 登录；顾客说登录失效时要用户转告验证码。月报暂不自动出。
+  依赖本会话机器上的数据库、`scripts/state.json`（顾客说登录）和 dws 登录；顾客说登录失效时要用户转告验证码。
+  2026-10-12 用户要求月报也自动出：同一个任务里，每月 1–7 号那个周一做完周报后出上月月报（要点由模型按数据手写），同样存档并发给两人。下一次月报是 11 月 2 日。
 
 - 流程：`bash scripts/portal.sh pull`（登录失效才要验证码）→ `python -m app.analyze batch --since <上月1日> --model claude-sonnet-5`
   → `python -m app.dish_kpi batch ...` → 轮询 `analyze collect` 和 `batchjobs collect` → `python -m app.sync_dingtalk`
