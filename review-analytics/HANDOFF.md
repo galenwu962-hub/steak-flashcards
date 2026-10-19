@@ -110,7 +110,7 @@ python -m app.analyze status        # 应显示已分析 5,367 条
   管理员 = 流程创建人（吴之洋）。以后交营运管理时要把流程创建人/接收人换成营运。
 - 周报进度：先 `python -m app.sync_dingtalk` 把表格状态拉回数据库，再 `python -m app.weekly`。
 - 2026-09-28 已给张异香（userId 17629152145383692，高级食安品控经理）开「可查看」权限并单聊发了链接（`dws doc +grant-and-share`）。
-- 下一期事项要追加到同一张表（record create，字段 ID 见 app/sync_dingtalk.py 和 scratch 里的写法），不要新建表。
+- 下一期事项要追加到同一张表：`python -m app.push_dingtalk --from A --to B --issued <下发日>`（字段映射在脚本里，先 --dry-run 看），不要新建表。
 
 ## 7. 90 天评价洞察报告（2026-09-27）
 
@@ -154,6 +154,9 @@ python -m app.analyze status        # 应显示已分析 5,367 条
 - **定时任务（2026-10-12 用户设定）**：Routine「每周一 门店口碑周报」trig_01PHzYSM8RAxceQAEuwSDQXZ，每周一 9:05（北京时间）唤醒本会话，
   按任务里写好的 8 步跑上周周报并发给异香和 Nina；上周缺 2 天以上数据就不发，只告诉用户。改时间或停用用 update_trigger / delete_trigger。
   依赖本会话机器上的数据库、`scripts/state.json`（顾客说登录）和 dws 登录；顾客说登录失效时要用户转告验证码。
+  2026-10-19 用户要求每两周归纳一次改善事项，也加进同一任务：上周日距最近一期事项截止日满 14 天就跑
+  `app.actions batch --chain` → `app.push_dingtalk`（追加到 AI 表格，按编号去重、回读确认）→ 原地覆盖《改善事项清单》云文档。
+  第一次是 10 月 26 日，补 9/26–10/25；之后每两周一次。
   2026-10-12 用户要求月报也自动出：同一个任务里，每月 1–7 号那个周一做完周报后出上月月报（要点由模型按数据手写），同样存档并发给两人。下一次月报是 11 月 2 日。
 
 - 流程：`bash scripts/portal.sh pull`（登录失效才要验证码）→ `python -m app.analyze batch --since <上月1日> --model claude-sonnet-5`
