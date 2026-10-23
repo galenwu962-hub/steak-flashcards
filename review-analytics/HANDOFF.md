@@ -183,3 +183,10 @@ python -m app.analyze status        # 应显示已分析 5,367 条
 - 2026-10-09 再拉一次，顾客说平台仍然只到 10/1（10/4 只有 1 条），平台那边国庆后就没再采集，要用户去找顾客说的供应商。
 - 2026-10-05：国庆期间顾客说平台 10/2–10/4 几乎没有数据（10/1 有 61 条，10/4 只有 1 条），周报已标注，数据补齐后要重出。
 
+
+## 11. 菜品口碑看板（2026-10-23）
+
+- 近 13 周（7/20–10/18）分门店分区域、Top 20 菜品提及和明确不满率排名：`python -m app.products batch|export` → `python -m app.product_board <json> <html> <要点>`。
+  在线版 https://claude.ai/artifact/5iEBDDjrFAW8uadoh1C5XL ；一页纸 PNG/PDF 放在研发中心知识库「新品调研」文件夹
+  （用户说「产品调研」，知识库里没有这个名字，按最接近且同类内容的「新品调研」放的）：https://alidocs.dingtalk.com/i/nodes/l6Pm2Db8D47wOrvrTy0yGe7m8xLq0Ee4
+- 区域：华东 = 杭州恒隆、南京德基；其余 11 家为华南。香草瀑布提拉米苏几乎只在华东被提到；滋滋墨鱼锅只在华南，不满率 32% 最高。
