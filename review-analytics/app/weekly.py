@@ -102,6 +102,8 @@ def build(conn, date_to: str | None = None) -> dict:
     # themes are summarised with the items every two weeks; in a week without a new run nothing is new
     fresh_run = bool(cur_period) and cur_period >= f.date_from
     new_themes = [t for t in themes if t["new"]] if fresh_run else []
+    # in a week that summarised a new period, show its cross-store issues (new categories flagged)
+    period_themes = themes if fresh_run else []
 
     # progress counts the latest issued batch from before this week (a re-run over a longer period
     # replaces the earlier batch for the same dates, so only the most recently generated one counts)
@@ -137,7 +139,7 @@ def build(conn, date_to: str | None = None) -> dict:
         "grade_counts": {g: sum(s["grade"] == g for s in stores) for g in order},
         "red_week": red_week, "red_carry": red_carry, "risk_week": risk_week,
         "missing_days": missing, "thin_days": thin,
-        "themes": themes, "new_themes": new_themes, "first_themes": not prev_period and fresh_run,
+        "themes": themes, "new_themes": new_themes, "period_themes": period_themes, "first_themes": not prev_period and fresh_run,
         "next_run": (date.fromisoformat(cur_period) + timedelta(days=14)).isoformat() if cur_period and not fresh_run else None,
         "progress": sorted(progress.values(), key=lambda p: (p["done"] / p["total"], -p["total"])),
         "progress_first": not earlier,
@@ -337,14 +339,14 @@ def render(D: dict) -> str:
         names = "、".join(f"{escape(k)} {v} 条" for k, v in by_store.items())
         carry = f'<p class="foot">另有 {len(D["red_carry"])} 条上周的红线事项尚未关闭：{names}。</p>'
 
-    shown = D["new_themes"][:THEMES_SHOWN]
+    shown = D["period_themes"][:THEMES_SHOWN]
     themes = "".join(f"""
-        <li><div class="li-head"><span class="who">{escape(t['title'])}</span></div>
+        <li><div class="li-head"><span class="who">{escape(t['title'])}</span>{'<span class="tag">新</span>' if t['new'] else ''}</div>
           <p class="meta">{escape(t['category'])} · {t['store_count']} 家门店 · {t['evidence_total']} 条意见</p></li>""" for t in shown) \
         or ('<li class="none">本周没有新的归纳，跨店问题每两周归纳一次。</li>' if D.get("next_run")
             else '<li class="none">本周没有新出现的跨店问题。</li>')
     theme_note = ("首期，全部视为新增。" if D["first_themes"] else "") + \
-        (f"另有 {len(D['new_themes']) - len(shown)} 个见《改善事项清单》。" if len(D["new_themes"]) > len(shown) else "")
+        (f"另有 {len(D['period_themes']) - len(shown)} 个见《改善事项清单》。" if len(D["period_themes"]) > len(shown) else "")
 
     total = sum(p["total"] for p in D["progress"])
     done = sum(p["done"] for p in D["progress"])
@@ -401,7 +403,7 @@ def render(D: dict) -> str:
       <ul>{red}</ul>{carry}
     </section>
     <section>
-      <h2>新增跨店问题<small>至少 3 家门店同时出现</small></h2>
+      <h2>{'本期跨店问题' if D['period_themes'] else '跨店问题'}<small>至少 3 家门店同时出现{'；「新」= 上一期没有的' if D['period_themes'] else ''}</small></h2>
       <ul>{themes}</ul>
       {f'<p class="foot">{theme_note}</p>' if theme_note else ''}
     </section>

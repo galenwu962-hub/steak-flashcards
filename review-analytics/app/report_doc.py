@@ -65,8 +65,9 @@ def weekly_md(D: dict, title: str) -> str:
     if D["red_carry"]:
         out.append(f"- 另有 {len(D['red_carry'])} 条之前的红线事项尚未关闭。")
     out += ["", "## 跨店问题", ""]
-    if D["new_themes"]:
-        out += [f"- **{_cell(t['title'])}**：{t['category']} · {t['store_count']} 家门店 · {t['evidence_total']} 条意见" for t in D["new_themes"][:5]]
+    if D.get("period_themes"):
+        out += [f"- **{_cell(t['title'])}**{'（新）' if t['new'] else ''}：{t['category']} · {t['store_count']} 家门店 · {t['evidence_total']} 条意见"
+                for t in D["period_themes"][:5]]
     else:
         out.append("- 本周没有新的归纳，跨店问题每两周归纳一次。")
     total = sum(p["total"] for p in D["progress"])
