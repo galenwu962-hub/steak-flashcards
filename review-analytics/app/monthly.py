@@ -20,7 +20,6 @@ from .weekly import FONTS, STYLE, TRACKED_DISHES, _delta, _md, _pct, short
 
 # Deadlines in the AI table are counted from the issue date by priority (HANDOFF.md §6).
 DUE_DAYS = {"红线": 1, "高": 3, "中": 7, "低": 14}
-ISSUED = {"2026-09-01": "2026-09-28"}      # item period start -> date the items went out to the stores
 SMALL_MONTH = 60                            # fewer reviews in a month: the rate is shaky
 DISH_STORE_MIN = 10                         # stores mentioning the dish less often are summed up in one line
 
@@ -100,17 +99,21 @@ def build(conn, ym: str, notes: list[str], today: str) -> dict:
     prev_red = conn.execute("SELECT count(*) FROM review_analysis a JOIN reviews r ON r.id = a.review_id "
                             "WHERE a.risk = 'high' AND r.review_date BETWEEN ? AND ?", ranges[-2]).fetchone()[0]
 
+    # the latest batch of improvement items issued by the report date (created the day it went out)
+    batch = conn.execute("SELECT period_from, period_to, substr(created_at, 1, 10) FROM action_items "
+                         "WHERE substr(created_at, 1, 10) <= ? ORDER BY created_at DESC LIMIT 1", [today]).fetchone()
+    issued = batch[2] if batch else today
     items = []
-    for it in conn.execute("SELECT period_from, kind, priority, escalate, status FROM action_items "
-                           "WHERE period_from IN (%s)" % ",".join("?" * len(ISSUED)), list(ISSUED)):
+    for it in conn.execute("SELECT kind, priority, escalate, status FROM action_items WHERE period_from = ? AND period_to = ?",
+                           [batch[0], batch[1]] if batch else ["", ""]):
         level = "红线" if it["escalate"] else it["priority"]
         due = None
         if it["kind"] != "知晓":
-            due = (date.fromisoformat(ISSUED[it["period_from"]]) + timedelta(days=DUE_DAYS.get(level, 7))).isoformat()
+            due = (date.fromisoformat(issued) + timedelta(days=DUE_DAYS.get(level, 7))).isoformat()
         items.append({"level": level, "kind": it["kind"], "done": it["status"] == "done", "due": due})
     tasks = [i for i in items if i["kind"] != "知晓"]
     progress = {
-        "issued": min(ISSUED.values()), "total": len(items), "tasks": len(tasks), "aware": len(items) - len(tasks),
+        "issued": issued, "period": (batch[0], batch[1]) if batch else None, "total": len(items), "tasks": len(tasks), "aware": len(items) - len(tasks),
         "done": sum(i["done"] for i in tasks),
         "overdue": sum(1 for i in tasks if not i["done"] and i["due"] < today),
         "overdue_red": sum(1 for i in tasks if not i["done"] and i["due"] < today and i["level"] == "红线"),
@@ -286,7 +289,7 @@ table.tight td small {{ display: block; font-size: 11px; color: var(--muted); fo
         <div><span class="v" style="color:var(--bad)">{P['overdue']}</span><span class="l">已逾期，其中红线 {P['overdue_red']}</span></div>
         <div><span class="v">{P['due_today']}</span><span class="l">今天到期</span></div>
       </div>
-      <p class="foot">共 {P['total']} 条，由 9 月 1 日–25 日的评价归纳；其中 {P['aware']} 条仅需知晓，不计入。这里是钉钉「门店改善事项跟进」表里的状态，执行进度以品控 QSC 追踪表为准；统计到 {_md(D['today'])}。</p>
+      <p class="foot">共 {P['total']} 条，由 {_md(P['period'][0]) if P['period'] else ''}–{_md(P['period'][1]) if P['period'] else ''} 的评价归纳；其中 {P['aware']} 条仅需知晓，不计入。这里是钉钉「门店改善事项跟进」表里的状态，执行进度以品控 QSC 追踪表为准；统计到 {_md(D['today'])}。</p>
     </section>
   </div>
 

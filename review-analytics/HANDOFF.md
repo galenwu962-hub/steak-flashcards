@@ -1,22 +1,27 @@
 # 交接说明（给下一个工作会话）
 
 用户是 pLeace 必乐时的老板（吴之洋，钉钉手机号 18576420071），不懂编程，全程用中文，解释要简短。
-先读本文件、README.md，再动手。所有代码在分支 `claude/restaurant-review-analysis-tool-c8bmky`。
+先读本文件、README.md，再动手。所有代码在分支 `claude/exciting-fermat-bf4egd`。
 
-## 1. 先恢复数据（不要重新拉取和重新解析，那要再花约 11 美元）
+## 1. 先恢复数据（不要重新拉取和重新解析，那要再花十几美元）
 
 数据库快照存在一个私有 Artifact 里：https://claude.ai/artifact/EUAPHi53zTujY8RUwRKB6B
-用 Artifact 工具 `read`，`path` 为 `reviews-backup.db.gz.b64.txt`，它会存到本地，然后：
+每周一例行任务做完后会用 `bash scripts/backup_db.sh <scratch>/backup` 重新快照并发布到这个 Artifact（最多丢一周数据）。
+新会话里如果 `data/reviews.db` 不存在（服务器被换掉，2026-11-02 发生过一次），先恢复：
+用 Artifact 工具 `read`，`path` 为 `reviews-backup.db.xz.b64.txt`，它会存到本地，然后：
 
 ```bash
 cd review-analytics && pip install -r requirements.txt
-base64 -d <保存下来的文件> | gunzip > data/reviews.db
-python -m app.analyze status        # 应显示已分析 5,367 条
+mkdir -p data && base64 -d <保存下来的文件> | xz -d > data/reviews.db
+python -m app.analyze status        # 核对条数和页面上写的快照内容一致
 ```
 
-快照时间 2026-09-26 10:30，内容：33,995 条评价（数据到 2026-09-25）、5,367 条 AI 解析（2026-06-28 以来）、
-13 条回复建议试写、94 条改善事项与 10 个跨店主题（2026-09-12 至 09-25）。
-「顾客说」的登录态没有备份，要拉新数据需重新走验证码登录（见 README 第一步和下文第 5 节）。
+快照内容（条数、数据截止日期）写在 Artifact 页面上。恢复后：
+- 钉钉要重新登录（`dws auth login --device --no-browser --profile ding4568e64363f30dc0a1320dcb25e91351`，把二维码链接发给用户扫码）。
+- 「顾客说」的登录态（scripts/state.json）不备份，要拉新数据需重新走验证码登录（`scripts/portal.sh start` → 把验证码图片发给用户 → `captcha` → `sms`，见第 5 节）。
+- 然后补数据：`scripts/portal.sh pull` → `python -m app.analyze batch` → complaints / dish_kpi batch → `python -m app.batchjobs collect`。
+- 快照之后在钉钉表里新增或改过状态的改善事项：`python -m app.restore_items` 从 AI 表格重建（保留事项编号），`--relink` 把原话对回评价。
+- 恢复后的数字和已发出的报告可能差 0.5 个百分点以内（重新解析有少量出入），属正常。
 
 ## 2. 已经定下来的口径和规则
 
