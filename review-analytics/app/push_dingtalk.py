@@ -51,7 +51,7 @@ def build(conn, d0: str, d1: str, issued: date) -> list[dict]:
             F["category"]: it["category"], F["owner"]: it["owner"], F["action"]: it["action"],
             F["quotes"]: quotes, F["reviews"]: it["review_count"] or len({e.get("review_id") for e in ev}),
             F["issued"]: _ms(issued), F["period"]: f"{d0} 至 {d1}", F["item_id"]: it["id"],
-            F["kind"]: it["kind"] or "整改",
+            F["kind"]: "仅知晓" if aware else "整改",   # the table's option is named 仅知晓
         }
         if aware:
             cells[F["note"]] = it["kind_reason"] or "仅知晓，留意即可"
