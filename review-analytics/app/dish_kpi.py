@@ -3,8 +3,9 @@
 Rate = reviews where the customer is clearly unhappy with the dish itself ÷ reviews that mention it.
 This is the definition the owner and 品控 (张异香) settled on in October 2026 after reading every
 September review by hand. Complaints only about the fries, the sauce or the doneness options, mild
-suggestions inside a good review, and mixed-but-positive remarks do not count; a doneness that does
-not match the order, or "not worth the price", does.
+suggestions inside a good review, mixed-but-positive remarks and vague lukewarm words (一般, 普通, 不惊艳;
+excluded by the owner on 2026-11-04) do not count; a doneness that does not match the order, or "not worth
+the price", does.
 
 Reviews whose analysed points about the dish are all positive are settled by rule (不算) without a
 model call; the rest are judged by the model against the criteria below.
@@ -47,7 +48,7 @@ SYSTEM_PROMPT = """你在帮 pLeace 必乐时统计一道菜的「顾客明确�
 - 肉质差：太软烂没有韧劲、肉散、汁水少。
 - 调味问题：偏咸、调料味太重盖住肉味、没有椒麻味。
 - 切得太薄、分量少。
-- 整体评价负面、带失望：差点意思、反倒一般般、不惊艳又挑出毛病、体验差、失望。
+- 明确的负面评价，即使没说具体毛病：不好吃、难吃、失望、没达到预期、体验差。
 - 觉得不值这个价、性价比差。例：「性价比普通，搭配的薯条又油又干」→ 不满。
 
 算「不算」：
@@ -56,7 +57,10 @@ SYSTEM_PROMPT = """你在帮 pLeace 必乐时统计一道菜的「顾客明确�
 - 夸贬参半、整体是正面的。例：「看起来干柴，吃起来还可以」「肉质很入味……加了烤肉粉反而掩盖了肉味」「也挺好吃的，味儿稍微有一点点淡」→ 不算。
 - 熟度只是轻微偏差、同时夸肉。例：「肉很嫩，我们选了5成熟的，稍稍有些生」→ 不算。
 - 只说辣、没说不好吃，或因自身原因受不了辣。例：「不错就是那天嗓子疼差点没辣晕」→ 不算。
-- 只有不温不火的词，没有具体毛病、也没有失望的意思：「腹心肉中规中矩」「牛肉我倒没觉得什么感觉」「肉一般吧，但性价比不错了」→ 不算。
+- 笼统的「一般」（用户 2026-11-04 定，统一不算）：只用不温不火的词，没指出具体毛病，也没说不好吃或失望。
+  一般、一般般、普通、普普通通、没什么特别、没什么肉香、不惊艳、没有很惊艳、差点意思、中规中矩、没觉得什么感觉，都算这一类。
+  例：「腹心肉中规中矩」「一般般，没有特别惊艳」「肉和汁也是普普通通，没有很惊艳」「腹心肉感觉还差点意思」「味道就中规中矩吧，不惊艳」→ 不算。
+  同时指出了具体毛病的，按上面算不满。例：「牛肉一般般，太薄了没感觉」→ 不满（切得太薄）。
 - 只是提到或夸这道菜。
 - 评价里的不满其实针对别的菜（例如别的牛肉饭、意面），不是这道菜。
 """
@@ -103,11 +107,17 @@ def save(conn, review_id: str, dish_key: str, verdict: str, reason: str, model: 
                      (review_id, dish_key, verdict, reason, model))
 
 
-def pending(conn, dish_key: str, d0: str, d1: str, redo: bool = False) -> list:
-    """Mentions still needing a model call; settles the all-positive ones by rule on the way."""
+def pending(conn, dish_key: str, d0: str, d1: str, redo: bool = False, recheck: bool = False) -> list:
+    """Mentions still needing a model call; settles the all-positive ones by rule on the way.
+    recheck: judge again only the reviews currently judged 不满 (after the criteria were tightened)."""
     done = {r[0] for r in conn.execute("SELECT review_id FROM dish_judgments WHERE dish = ?", (dish_key,))}
+    bad = {r[0] for r in conn.execute("SELECT review_id FROM dish_judgments WHERE dish = ? AND verdict = '不满'", (dish_key,))}
     out = []
     for r in mentions(conn, dish_key, d0, d1):
+        if recheck:
+            if r["id"] in bad:
+                out.append(r)
+            continue
         if r["id"] in done and not redo:
             continue
         if _all_points_positive(conn, dish_key, r["id"]):
@@ -130,7 +140,7 @@ def rate(conn, dish_key: str, d0: str, d1: str, store_id=None) -> dict:
 
 def cmd_run(args):
     conn, client = connect(), make_client()
-    for r in pending(conn, args.dish, args.__dict__["from"], args.to, args.redo):
+    for r in pending(conn, args.dish, args.__dict__["from"], args.to, args.redo, args.recheck):
         msg = client.messages.create(**request_params(args.model, _message(args.dish, r)))
         j = Judgment.model_validate_json(next((b.text for b in msg.content if b.type == "text"), ""))
         save(conn, r["id"], args.dish, j.verdict, j.reason, args.model)
@@ -186,6 +196,7 @@ def main(argv=None):
         p.add_argument("--dish", default="腹心肉", choices=list(DISHES))
         p.add_argument("--model", default=DEFAULT_MODEL)
         p.add_argument("--redo", action="store_true", help="judge again even if already judged")
+        p.add_argument("--recheck", action="store_true", help="judge again only the reviews now judged 不满")
         p.set_defaults(fn=fn)
     args = ap.parse_args(argv)
     args.fn(args)
