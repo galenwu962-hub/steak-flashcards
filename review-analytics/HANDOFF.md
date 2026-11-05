@@ -199,3 +199,14 @@ python -m app.analyze status        # 核对条数和页面上写的快照内容
   在线版 https://claude.ai/artifact/5iEBDDjrFAW8uadoh1C5XL ；一页纸 PNG/PDF 放在研发中心知识库「新品调研」文件夹
   （用户说「产品调研」，知识库里没有这个名字，按最接近且同类内容的「新品调研」放的）：https://alidocs.dingtalk.com/i/nodes/l6Pm2Db8D47wOrvrTy0yGe7m8xLq0Ee4
 - 区域：华东 = 杭州恒隆、南京德基；其余 11 家为华南。香草瀑布提拉米苏几乎只在华东被提到；滋滋墨鱼锅只在华南，不满率 32% 最高。
+
+## 12. 新菜反馈一页纸（2026-11-05，皇后牛排，给研发耿校）
+
+- 用户要「招牌炙烤皇后牛排配杂蔬」9/28 至今的全部点评，按好评/中评/差评分类，出一页纸给西厨研发经理耿校（钉钉 userId 17675287858541541）。
+- `python -m app.dish_feedback run --dish 皇后牛排 --from A --to B`（同步，逐条判：是否说到这道菜、好/中/差、各方面的原话；存 dish_feedback 表）
+  → `export --out x.json` → `python -m app.dish_feedback_page --from A --to B --notes <要点文件> --out x.html` → render_report.js 出 PNG/PDF。
+  候选：正文提到菜名，或买了含这道菜的套餐（entry_type）且正文说到牛排；只夸套餐整体的判无关。
+  好/中/差按顾客对菜本身的态度，不按星级；差评与腹心肉考核口径一致，笼统「一般」算中评。
+  新菜要加进 dish_feedback.DISHES。附带的 xlsx（全部原文，分 4 个工作表）由一段内联脚本生成，见本次提交说明。
+- 结果（数据到 11/2）：75 条，好评 54（72%）、中评 15、差评 6（8.0%），同期腹心肉 9.4%；主要问题是肉腥味（3 条）和「不惊艳」。
+  人工改了 2 条判定：只写了菜名的判无关；「牛排都被娃吃了」判好评。
