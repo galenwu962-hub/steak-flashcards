@@ -207,6 +207,6 @@ python -m app.analyze status        # 核对条数和页面上写的快照内容
   → `export --out x.json` → `python -m app.dish_feedback_page --from A --to B --notes <要点文件> --out x.html` → render_report.js 出 PNG/PDF。
   候选：正文提到菜名，或买了含这道菜的套餐（entry_type）且正文说到牛排；只夸套餐整体的判无关。
   好/中/差按顾客对菜本身的态度，不按星级；差评与腹心肉考核口径一致，笼统「一般」算中评。
-  新菜要加进 dish_feedback.DISHES。附带的 xlsx（全部原文，分 4 个工作表）由一段内联脚本生成，见本次提交说明。
+  新菜要加进 dish_feedback.DISHES。附带的 xlsx（全部原文；工作表：全部、好评、中评、差评；列：分类、日期、门店、星级、平台、一句话概括、优点、问题、原文）用 openpyxl 从 export 的 JSON 生成，还没写成脚本。
 - 结果（数据到 11/2）：75 条，好评 54（72%）、中评 15、差评 6（8.0%），同期腹心肉 9.4%；主要问题是肉腥味（3 条）和「不惊艳」。
   人工改了 2 条判定：只写了菜名的判无关；「牛排都被娃吃了」判好评。
